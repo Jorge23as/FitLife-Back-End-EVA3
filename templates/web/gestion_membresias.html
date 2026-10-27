@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+{% block titulo %}Membresías{% endblock %}
+{% block contenido %}
+<div class="mb-3">
+  <h1 class="h3 mb-0"><i class="bi bi-card-checklist text-fl"></i> Membresías</h1>
+  <p class="text-muted small mb-0">Estados: <strong>Activa</strong> (pagada y en fecha) · <strong>Congelada</strong> (pausada, los días se suman al final) ·
+    <strong>Vencida</strong> (pasó su término, pasa sola) · <strong>Cancelada</strong> (su pago se anuló).</p>
+</div>
+<ul class="nav nav-pills mb-3" id="pestanas">
+  <li class="nav-item"><button class="nav-link active" data-accion="pestana" data-filtro="">Todas</button></li>
+  <li class="nav-item"><button class="nav-link" data-accion="pestana" data-filtro="estado=ACTIVA">Activas</button></li>
+  <li class="nav-item"><button class="nav-link" data-accion="pestana" data-filtro="por_vencer=7">Vencen en 7 días</button></li>
+  <li class="nav-item"><button class="nav-link" data-accion="pestana" data-filtro="estado=CONGELADA">Congeladas</button></li>
+  <li class="nav-item"><button class="nav-link" data-accion="pestana" data-filtro="estado=VENCIDA">Vencidas</button></li>
+  <li class="nav-item"><button class="nav-link" data-accion="pestana" data-filtro="estado=CANCELADA">Canceladas</button></li>
+</ul>
+<div class="card tarjeta mb-3"><div class="card-body py-2 d-flex gap-2 align-items-center">
+  <input id="buscar" class="form-control" placeholder="Buscar socio por nombre o RUT">
+  <span class="small text-muted text-nowrap" id="total"></span>
+</div></div>
+<div class="card tarjeta"><div class="table-responsive">
+  <table class="table table-hover tabla-compacta mb-0">
+    <thead class="table-light"><tr><th>Socio</th><th>Plan</th><th>Período</th><th>Estado</th><th>Días restantes</th><th>Congelamiento</th><th class="text-end">Acciones</th></tr></thead>
+    <tbody id="tabla"></tbody>
+  </table>
+</div></div>
+<nav class="d-flex justify-content-center gap-2 mt-3" id="paginas"></nav>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}">
+  const ES_ADMIN = {{ es_admin_fitlife|yesno:'true,false' }};
+  let filtro = '';
+  let pagina = 1;
+  let membresias = {};
+
+  async function cargar() {
+    const busqueda = document.getElementById('buscar').value.trim();
+    const r = await api(`/api/membresias/?page=${pagina}&ordering=-fecha_inicio&${filtro}${busqueda ? `&search=${encodeURIComponent(busqueda)}` : ''}`);
+    if (!r.ok) return mensaje(errorTexto(r.data), 'danger');
+    membresias = Object.fromEntries(r.data.results.map((m) => [m.id, m]));
+    document.getElementById('total').textContent = `${r.data.count} membresía(s)`;
+    const hoy = isoDia();
+    document.getElementById('tabla').innerHTML = r.data.results.map((m) => {
+      const congelamiento = m.congelamientos.find((c) => c.fecha_inicio <= hoy && hoy < c.fecha_fin);
+      return `<tr>
+        <td><div class="fw-semibold">${esc(m.socio_nombre)}</div><div class="small text-muted">${esc(m.socio_rut)}</div></td>
+        <td>${esc(m.plan_nombre)}<div class="small text-muted">${m.pago ? m.pago.comprobante : 'Cortesía'}</div></td>
+        <td class="small">${fecha(m.fecha_inicio)} al ${fecha(m.fecha_fin)}</td>
+        <td>${badge(m.estado, m.estado_texto)}${congelamiento ? `<div class="small text-muted">hasta el ${fecha(congelamiento.ultimo_dia)}</div>` : ''}</td>
+        <td>${['ACTIVA', 'CONGELADA'].includes(m.estado) ? m.dias_restantes : '-'}</td>
+        <td class="small">${m.dias_congelados} de ${m.dias_congelamiento_plan} días usados</td>
+        <td class="text-end text-nowrap">
+          ${m.estado === 'ACTIVA' && m.fecha_inicio <= hoy ? `<button class="btn btn-sm btn-outline-primary" data-accion="congelar" data-id="${m.id}"><i class="bi bi-snow2"></i> Congelar</button>` : ''}
+          ${m.estado === 'CONGELADA' ? `<button class="btn btn-sm btn-outline-primary" data-accion="descongelar" data-id="${m.id}"><i class="bi bi-sun"></i> Descongelar</button>` : ''}
+          ${ES_ADMIN && ['ACTIVA', 'CONGELADA'].includes(m.estado) ? `<button class="btn btn-sm btn-outline-secondary" data-accion="termino" data-id="${m.id}" title="Corregir término"><i class="bi bi-calendar-event"></i></button>` : ''}
+        </td></tr>`;
+    }).join('') || '<tr><td colspan="7" class="text-muted p-3">No hay membresías con ese filtro.</td></tr>';
+    document.getElementById('paginas').innerHTML = `
+      <button class="btn btn-sm btn-outline-secondary" data-accion="pagina" data-delta="-1" ${r.data.previous ? '' : 'disabled'}>Anterior</button>
+      <span class="small align-self-center">Página ${pagina}</span>
+      <button class="btn btn-sm btn-outline-secondary" data-accion="pagina" data-delta="1" ${r.data.next ? '' : 'disabled'}>Siguiente</button>`;
+  }
+
+  registrarAcciones({
+    pestana(btn) {
+      document.querySelectorAll('#pestanas .nav-link').forEach((b) => b.classList.toggle('active', b === btn));
+      filtro = btn.dataset.filtro;
+      pagina = 1;
+      cargar();
+    },
+    pagina(btn) { pagina += Number(btn.dataset.delta); cargar(); },
+    async congelar(btn) {
+      const m = membresias[btn.dataset.id];
+      const disponibles = m.dias_congelamiento_plan - m.dias_congelados;
+      const r = await formulario({
+        titulo: `Congelar membresía de ${m.socio_nombre}`,
+        campos: [{ nombre: 'dias', etiqueta: 'Días', tipo: 'number', min: 1, max: Math.max(disponibles, 1), requerido: true,
+                   valor: Math.min(7, Math.max(disponibles, 1)), ancho: 'col-md-4', ayuda: `Le quedan ${disponibles} de ${m.dias_congelamiento_plan} días.` },
+                 { nombre: 'motivo', etiqueta: 'Motivo', ancho: 'col-md-8' }],
+        textoOk: 'Congelar',
+        enviar: (datos) => apiPost(`/api/membresias/${m.id}/congelar/`, datos),
+      });
+      if (r) { mensaje(`Membresía congelada. Nuevo término: ${fecha(r.fecha_fin)}.`, 'info'); cargar(); }
+    },
+    async descongelar(btn) {
+      if (!await preguntar('Descongelar', 'Se reactiva hoy y los días no usados se descuentan del término.', 'Descongelar')) return;
+      const r = await apiPost(`/api/membresias/${btn.dataset.id}/descongelar/`);
+      if (!r.ok) return mensaje(errorTexto(r.data), 'danger');
+      mensaje(`Membresía reactivada. Término: ${fecha(r.data.fecha_fin)}.`, 'info');
+      cargar();
+    },
+    async termino(btn) {
+      const m = membresias[btn.dataset.id];
+      const r = await formulario({
+        titulo: `Corregir término (${m.socio_nombre})`,
+        campos: [{ nombre: 'fecha_fin', etiqueta: 'Nuevo término', tipo: 'date', requerido: true, valor: m.fecha_fin,
+                   ayuda: 'No puede traslaparse con otra membresía del socio.' }],
+        enviar: (datos) => apiPatch(`/api/membresias/${m.id}/`, datos),
+      });
+      if (r) { mensaje('Término actualizado.'); cargar(); }
+    },
+  });
+
+  let espera = null;
+  document.getElementById('buscar').addEventListener('input', () => { clearTimeout(espera); espera = setTimeout(() => { pagina = 1; cargar(); }, 300); });
+  cargar();
+</script>
+{% endblock %}

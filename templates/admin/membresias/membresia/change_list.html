@@ -1,0 +1,13 @@
+{% extends "admin/change_list.html" %}
+{# Lista de membresías: arriba, cuántas hay en cada estado (cada tarjeta filtra la lista) #}
+{% block result_list %}
+<div class="fl-tarjetas fl-chicas">
+  {% for fila in resumen_estados %}
+  <a class="fl-tarjeta" href="?estado__exact={{ fila.estado }}">
+    <div class="fl-etiqueta"><span class="fl-badge fl-{% if fila.estado == 'ACTIVA' %}verde{% elif fila.estado == 'VENCIDA' %}rojo{% elif fila.estado == 'CONGELADA' %}azul{% else %}gris{% endif %}">{{ fila.texto }}</span></div>
+    <div class="fl-numero">{{ fila.cantidad }}</div>
+  </a>
+  {% endfor %}
+</div>
+{{ block.super }}
+{% endblock %}

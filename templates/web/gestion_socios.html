@@ -1,0 +1,148 @@
+{% extends 'base.html' %}
+{% block titulo %}Socios{% endblock %}
+{% block contenido %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-0"><i class="bi bi-people text-fl"></i> Socios</h1>
+    <p class="text-muted small mb-0">Registrar un pago crea (o renueva) la membresía del socio automáticamente.</p>
+  </div>
+  <button class="btn btn-fl" data-accion="nuevo"><i class="bi bi-person-plus"></i> Nuevo socio</button>
+</div>
+<div class="card tarjeta mb-3"><div class="card-body py-2">
+  <form id="filtros" class="row g-2 align-items-center">
+    <div class="col-md-6"><input name="search" class="form-control" placeholder="Buscar por nombre, RUT, email o usuario"></div>
+    <div class="col-md-3"><select name="usuario__is_active" class="form-select">
+      <option value="true">Activos</option><option value="false">Desactivados</option><option value="">Todos</option></select></div>
+    <div class="col-md-3 text-md-end small text-muted" id="total"></div>
+  </form>
+</div></div>
+<div class="card tarjeta"><div class="table-responsive">
+  <table class="table table-hover tabla-compacta mb-0">
+    <thead class="table-light"><tr><th>Socio</th><th>Contacto</th><th>Membresía</th><th>Vence</th><th class="text-end">Acciones</th></tr></thead>
+    <tbody id="tabla"></tbody>
+  </table>
+</div></div>
+<nav class="d-flex justify-content-center gap-2 mt-3" id="paginas"></nav>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}">
+  let pagina = 1;
+  let socios = {};
+  let planes = [];
+  const METODOS = [{ valor: 'EFECTIVO', texto: 'Efectivo' }, { valor: 'DEBITO', texto: 'Tarjeta de débito' },
+                   { valor: 'CREDITO', texto: 'Tarjeta de crédito' }, { valor: 'TRANSFERENCIA', texto: 'Transferencia' }];
+
+  const CAMPOS_SOCIO = [
+    { nombre: 'first_name', etiqueta: 'Nombres', requerido: true, ancho: 'col-md-6' },
+    { nombre: 'last_name', etiqueta: 'Apellidos', requerido: true, ancho: 'col-md-6' },
+    { nombre: 'rut', etiqueta: 'RUT', requerido: true, ancho: 'col-md-4', ayuda: 'Ej: 12345678-5' },
+    { nombre: 'email', etiqueta: 'Email', tipo: 'email', requerido: true, ancho: 'col-md-4' },
+    { nombre: 'telefono', etiqueta: 'Teléfono', ancho: 'col-md-4' },
+    { nombre: 'fecha_nacimiento', etiqueta: 'Fecha de nacimiento', tipo: 'date', ancho: 'col-md-4' },
+    { nombre: 'contacto_emergencia', etiqueta: 'Contacto de emergencia', ancho: 'col-md-4' },
+    { nombre: 'telefono_emergencia', etiqueta: 'Teléfono de emergencia', ancho: 'col-md-4' },
+  ];
+
+  async function cargar() {
+    const filtros = new URLSearchParams(new FormData(document.getElementById('filtros')));
+    filtros.set('page', pagina);
+    const r = await api(`/api/socios/?${filtros}`);
+    if (!r.ok) return mensaje(errorTexto(r.data), 'danger');
+    socios = Object.fromEntries(r.data.results.map((s) => [s.id, s]));
+    document.getElementById('total').textContent = `${r.data.count} socio(s)`;
+    document.getElementById('tabla').innerHTML = r.data.results.map((s) => {
+      const m = s.membresia;
+      return `<tr>
+        <td><div class="fw-semibold">${esc(s.nombre)} ${s.activo ? '' : badge('ANULADO', 'Desactivado')}</div>
+          <div class="small text-muted">${esc(s.rut)} · @${esc(s.username)}</div></td>
+        <td class="small">${esc(s.email)}<br>${esc(s.telefono || '')}</td>
+        <td>${badge(m.estado, m.texto)} <span class="small">${esc(m.plan || '')}</span></td>
+        <td class="small">${m.fecha_fin ? `${fecha(m.fecha_fin)}<br><span class="text-muted">${m.dias_restantes} días</span>` : '-'}</td>
+        <td class="text-end text-nowrap">
+          <button class="btn btn-sm btn-fl" data-accion="pagar" data-id="${s.id}" ${s.activo ? '' : 'disabled'}><i class="bi bi-cash-coin"></i> Pago</button>
+          ${m.estado === 'ACTIVA' ? `<button class="btn btn-sm btn-outline-primary" data-accion="congelar" data-id="${m.membresia_id}" data-nombre="${esc(s.nombre)}" title="Congelar"><i class="bi bi-snow2"></i></button>` : ''}
+          ${m.estado === 'CONGELADA' ? `<button class="btn btn-sm btn-outline-primary" data-accion="descongelar" data-id="${m.membresia_id}" title="Descongelar"><i class="bi bi-sun"></i></button>` : ''}
+          <button class="btn btn-sm btn-outline-secondary" data-accion="editar" data-id="${s.id}" title="Editar"><i class="bi bi-pencil"></i></button>
+          <a class="btn btn-sm btn-outline-secondary" href="/gestion/pagos/?socio=${s.id}" title="Pagos del socio"><i class="bi bi-receipt"></i></a>
+        </td></tr>`;
+    }).join('') || '<tr><td colspan="5" class="text-muted p-3">No hay socios con ese filtro.</td></tr>';
+    document.getElementById('paginas').innerHTML = `
+      <button class="btn btn-sm btn-outline-secondary" data-accion="pagina" data-delta="-1" ${r.data.previous ? '' : 'disabled'}>Anterior</button>
+      <span class="small align-self-center">Página ${pagina}</span>
+      <button class="btn btn-sm btn-outline-secondary" data-accion="pagina" data-delta="1" ${r.data.next ? '' : 'disabled'}>Siguiente</button>`;
+  }
+
+  registrarAcciones({
+    pagina(btn) { pagina += Number(btn.dataset.delta); cargar(); },
+    async nuevo() {
+      const socio = await formulario({
+        titulo: 'Nuevo socio',
+        campos: [{ nombre: 'username', etiqueta: 'Usuario (para ingresar)', requerido: true, ancho: 'col-md-6' },
+                 { nombre: 'password', etiqueta: 'Contraseña inicial', tipo: 'password', requerido: true, ancho: 'col-md-6',
+                   ayuda: 'Mínimo 8 caracteres combinando mayúsculas, minúsculas, números y símbolos.' }, ...CAMPOS_SOCIO],
+        textoOk: 'Crear socio',
+        enviar: (datos) => apiPost('/api/socios/', { ...datos, fecha_nacimiento: datos.fecha_nacimiento || null }),
+      });
+      if (socio) { mensaje(`Socio ${socio.nombre} creado. Ahora registra su primer pago para activar la membresía.`); cargar(); }
+    },
+    async editar(btn) {
+      const s = socios[btn.dataset.id];
+      const socio = await formulario({
+        titulo: `Editar a ${s.nombre}`,
+        campos: [...CAMPOS_SOCIO,
+                 { nombre: 'password', etiqueta: 'Nueva contraseña (opcional)', tipo: 'password', ancho: 'col-md-6' },
+                 { nombre: 'activo', etiqueta: 'Activo (puede ingresar y entrar al gimnasio)', tipo: 'checkbox', ancho: 'col-md-6' }],
+        valores: s,
+        enviar: (datos) => {
+          if (!datos.password) delete datos.password;
+          return apiPatch(`/api/socios/${s.id}/`, { ...datos, fecha_nacimiento: datos.fecha_nacimiento || null });
+        },
+      });
+      if (socio) { mensaje('Datos del socio actualizados.'); cargar(); }
+    },
+    async pagar(btn) {
+      const s = socios[btn.dataset.id];
+      const pago = await formulario({
+        titulo: `Registrar pago de ${s.nombre}`,
+        campos: [
+          { nombre: 'plan', etiqueta: 'Plan', tipo: 'select', requerido: true, vacio: 'Elige un plan',
+            opciones: planes.map((p) => ({ valor: p.id, texto: `${p.nombre} · ${clp(p.precio)} · ${p.duracion_dias} días` })) },
+          { nombre: 'metodo', etiqueta: 'Método de pago', tipo: 'select', requerido: true, opciones: METODOS, ancho: 'col-md-6' },
+          { nombre: 'observacion', etiqueta: 'Observación', ancho: 'col-md-6' },
+        ],
+        textoOk: 'Registrar pago',
+        enviar: (datos) => apiPost('/api/pagos/', { ...datos, socio: s.id, plan: Number(datos.plan) }),
+      });
+      if (pago) {
+        mensaje(`Pago ${pago.comprobante} registrado (${clp(pago.monto)}). Membresía ${pago.plan_nombre} del ${fecha(pago.membresia_inicio)} al ${fecha(pago.membresia_fin)}.`);
+        cargar();
+      }
+    },
+    async congelar(btn) {
+      const m = await formulario({
+        titulo: `Congelar membresía de ${btn.dataset.nombre}`,
+        campos: [{ nombre: 'dias', etiqueta: 'Días', tipo: 'number', min: 1, max: 365, requerido: true, valor: 7, ancho: 'col-md-4',
+                   ayuda: 'Se suman al término de la membresía.' },
+                 { nombre: 'motivo', etiqueta: 'Motivo', ancho: 'col-md-8' }],
+        textoOk: 'Congelar',
+        enviar: (datos) => apiPost(`/api/membresias/${btn.dataset.id}/congelar/`, datos),
+      });
+      if (m) { mensaje(`Membresía congelada. Nuevo término: ${fecha(m.fecha_fin)}.`, 'info'); cargar(); }
+    },
+    async descongelar(btn) {
+      if (!await preguntar('Descongelar', 'La membresía se reactiva hoy y los días no usados se descuentan del término.', 'Descongelar')) return;
+      const r = await apiPost(`/api/membresias/${btn.dataset.id}/descongelar/`);
+      if (!r.ok) return mensaje(errorTexto(r.data), 'danger');
+      mensaje(`Membresía reactivada. Término: ${fecha(r.data.fecha_fin)}.`, 'info');
+      cargar();
+    },
+  });
+
+  let espera = null;
+  document.getElementById('filtros').addEventListener('input', () => { clearTimeout(espera); espera = setTimeout(() => { pagina = 1; cargar(); }, 300); });
+  document.getElementById('filtros').addEventListener('submit', (e) => e.preventDefault());
+  api('/api/planes/?activo=true').then((r) => { if (r.ok) planes = r.data; });
+  cargar();
+</script>
+{% endblock %}

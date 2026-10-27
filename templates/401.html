@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block titulo %}Debes iniciar sesión{% endblock %}
+{% block contenido %}
+<!-- Página 401: se muestra al abrir en el navegador un endpoint de la API que pide sesión -->
+<div class="text-center py-5">
+  <div class="error-codigo">401</div>
+  <h1 class="h3 mt-3">Debes iniciar sesión</h1>
+  <p class="text-muted">Para ver <code>{{ destino }}</code> tienes que ingresar con tu usuario.</p>
+  <div class="d-flex gap-2 justify-content-center mt-4">
+    <a href="{% url 'login' %}" class="btn btn-fl"><i class="bi bi-box-arrow-in-right"></i> Iniciar sesión</a>
+    <a href="{% url 'inicio' %}" class="btn btn-outline-secondary"><i class="bi bi-house"></i> Volver al inicio</a>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,102 @@
+{% extends 'base.html' %}
+{% block titulo %}Pagos{% endblock %}
+{% block contenido %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-0"><i class="bi bi-cash-coin text-fl"></i> Pagos</h1>
+    <p class="text-muted small mb-0">Un pago no se borra: se anula (y su membresía queda cancelada). Solo el administrador puede anular.</p>
+  </div>
+  <a href="{% url 'gestion-socios' %}" class="btn btn-fl"><i class="bi bi-plus-circle"></i> Registrar pago (desde Socios)</a>
+</div>
+<div class="row g-3 mb-3">
+  <div class="col-6 col-md-3"><div class="card tarjeta h-100"><div class="card-body"><div class="kpi" id="k-hoy">-</div><div class="kpi-etiqueta">Recaudado hoy</div></div></div></div>
+  <div class="col-6 col-md-3"><div class="card tarjeta h-100"><div class="card-body"><div class="kpi" id="k-mes">-</div><div class="kpi-etiqueta">Recaudado este mes</div></div></div></div>
+  <div class="col-md-6"><div class="card tarjeta h-100"><div class="card-body"><div class="kpi-etiqueta mb-2">Este mes por método</div><div id="k-metodos" class="small"></div></div></div></div>
+</div>
+<div class="card tarjeta mb-3"><div class="card-body py-2">
+  <form id="filtros" class="row g-2">
+    <div class="col-md-3"><input name="search" class="form-control" placeholder="Socio o RUT"></div>
+    <div class="col-6 col-md-2"><input name="desde" type="date" class="form-control" title="Desde"></div>
+    <div class="col-6 col-md-2"><input name="hasta" type="date" class="form-control" title="Hasta"></div>
+    <div class="col-6 col-md-2"><select name="metodo" class="form-select"><option value="">Todos los métodos</option>
+      <option value="EFECTIVO">Efectivo</option><option value="DEBITO">Débito</option><option value="CREDITO">Crédito</option><option value="TRANSFERENCIA">Transferencia</option></select></div>
+    <div class="col-6 col-md-2"><select name="estado" class="form-select"><option value="">Todos</option><option value="PAGADO">Pagados</option><option value="ANULADO">Anulados</option></select></div>
+    <input type="hidden" name="socio">
+    <div class="col-md-1 small text-muted align-self-center" id="total"></div>
+  </form>
+</div></div>
+<div class="card tarjeta"><div class="table-responsive">
+  <table class="table table-hover tabla-compacta mb-0">
+    <thead class="table-light"><tr><th>Comprobante</th><th>Fecha</th><th>Socio</th><th>Plan / período</th><th>Monto</th><th>Método</th><th>Estado</th><th></th></tr></thead>
+    <tbody id="tabla"></tbody>
+  </table>
+</div></div>
+<nav class="d-flex justify-content-center gap-2 mt-3" id="paginas"></nav>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}">
+  const ES_ADMIN = {{ es_admin_fitlife|yesno:'true,false' }};
+  let pagina = 1;
+  let pagos = {};
+  const form = document.getElementById('filtros');
+  form.elements.socio.value = new URLSearchParams(location.search).get('socio') || '';
+
+  async function cargarResumen() {
+    const r = await api('/api/pagos/resumen/');
+    if (!r.ok) return;
+    document.getElementById('k-hoy').textContent = clp(r.data.total_hoy);
+    document.getElementById('k-mes').textContent = clp(r.data.total_mes);
+    document.getElementById('k-metodos').innerHTML = r.data.por_metodo.map((m) =>
+      `<div class="d-flex justify-content-between border-bottom py-1"><span>${esc(m.texto)}</span><strong>${clp(m.total)}</strong></div>`).join('') || 'Sin pagos este mes.';
+  }
+
+  async function cargar() {
+    const filtros = new URLSearchParams([...new FormData(form)].filter(([, v]) => v));
+    filtros.set('page', pagina);
+    const r = await api(`/api/pagos/?${filtros}`);
+    if (!r.ok) return mensaje(errorTexto(r.data), 'danger');
+    pagos = Object.fromEntries(r.data.results.map((p) => [p.id, p]));
+    document.getElementById('total').textContent = `${r.data.count}`;
+    document.getElementById('tabla').innerHTML = r.data.results.map((p) => `<tr>
+        <td class="fw-semibold">${p.comprobante}</td><td class="small">${fechaHora(p.fecha)}</td>
+        <td>${esc(p.socio_nombre)}<div class="small text-muted">${esc(p.socio_rut)}</div></td>
+        <td>${esc(p.plan_nombre)}<div class="small text-muted">${fecha(p.membresia_inicio)} al ${fecha(p.membresia_fin)}</div></td>
+        <td>${clp(p.monto)}</td><td class="small">${esc(p.metodo_texto)}</td>
+        <td>${badge(p.estado)}${p.motivo_anulacion ? `<div class="small text-muted">${esc(p.motivo_anulacion)}</div>` : ''}</td>
+        <td class="text-end text-nowrap">
+          <button class="btn btn-sm btn-outline-secondary" data-accion="comprobante" data-id="${p.id}" title="Ver comprobante"><i class="bi bi-receipt"></i></button>
+          ${ES_ADMIN && p.estado === 'PAGADO' ? `<button class="btn btn-sm btn-outline-danger" data-accion="anular" data-id="${p.id}" title="Anular"><i class="bi bi-x-circle"></i></button>` : ''}
+        </td></tr>`).join('') || '<tr><td colspan="8" class="text-muted p-3">No hay pagos con ese filtro.</td></tr>';
+    document.getElementById('paginas').innerHTML = `
+      <button class="btn btn-sm btn-outline-secondary" data-accion="pagina" data-delta="-1" ${r.data.previous ? '' : 'disabled'}>Anterior</button>
+      <span class="small align-self-center">Página ${pagina}</span>
+      <button class="btn btn-sm btn-outline-secondary" data-accion="pagina" data-delta="1" ${r.data.next ? '' : 'disabled'}>Siguiente</button>`;
+  }
+
+  registrarAcciones({
+    pagina(btn) { pagina += Number(btn.dataset.delta); cargar(); },
+    async anular(btn) {
+      const p = pagos[btn.dataset.id];
+      const motivo = await pedirTexto(`Anular ${p.comprobante}`, `La membresía ${p.plan_nombre} de ${p.socio_nombre} quedará cancelada y se liberarán sus reservas. Indique el motivo:`, 'Ej: pago duplicado', 'Anular pago');
+      if (!motivo) return;
+      const r = await apiPost(`/api/pagos/${p.id}/anular/`, { motivo });
+      if (!r.ok) return mensaje(errorTexto(r.data), 'danger');
+      mensaje(`${p.comprobante} anulado.`, 'info');
+      cargar(); cargarResumen();
+    },
+    comprobante(btn) {
+      const p = pagos[btn.dataset.id];
+      dialogo({ titulo: `Comprobante ${p.comprobante}`, textoOk: 'Cerrar',
+        mensaje: `${p.socio_nombre} (${p.socio_rut}) · ${p.plan_nombre} · ${clp(p.monto)} · ${p.metodo_texto} · ${fechaHora(p.fecha)} · ` +
+                 `Membresía del ${fecha(p.membresia_inicio)} al ${fecha(p.membresia_fin)} · Registrado por ${p.registrado_por || '-'} · Estado: ${p.estado}` });
+    },
+  });
+
+  let espera = null;
+  form.addEventListener('input', () => { clearTimeout(espera); espera = setTimeout(() => { pagina = 1; cargar(); }, 300); });
+  form.addEventListener('submit', (e) => e.preventDefault());
+  cargarResumen();
+  cargar();
+</script>
+{% endblock %}

@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block titulo %}Acceso denegado{% endblock %}
+{% block contenido %}
+<!-- Página 403: hay sesión, pero el rol no tiene permiso (ej. un socio entrando a /recepcion/) -->
+<div class="text-center py-5">
+  <div class="error-codigo">403</div>
+  <h1 class="h3 mt-3">Acceso denegado</h1>
+  <p class="text-muted">Tu usuario no tiene permiso para ver <code>{{ destino }}</code>.</p>
+  {% if rol_requerido %}<p class="text-muted">Esta sección es solo para: <strong>{{ rol_requerido }}</strong>.</p>{% endif %}
+  <div class="d-flex gap-2 justify-content-center mt-4">
+    <a href="{% url 'inicio' %}" class="btn btn-fl"><i class="bi bi-house"></i> Volver al inicio</a>
+    <button class="btn btn-outline-secondary" data-accion="cerrarSesion"><i class="bi bi-person"></i> Entrar con otro usuario</button>
+  </div>
+</div>
+{% endblock %}

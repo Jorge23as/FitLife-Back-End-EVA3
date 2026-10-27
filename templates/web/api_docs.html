@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% block titulo %}Documentación API{% endblock %}
+{% block contenido %}
+<!-- Swagger solo para el personal. La protección de verdad está en /api/schema/,
+     que pide sesión de recepción o administración. Swagger usa la misma cookie de sesión. -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.34.0/swagger-ui.css"
+      integrity="sha384-4c3vsE5f+trhFyHrFrLM1fFGUn531NIaC7dcqEWIJdoRQJ5CkJbSuSCwXLpaS1KF" crossorigin="anonymous">
+<div class="d-flex justify-content-between align-items-center mb-2">
+  <h1 class="h4 mb-0"><i class="bi bi-file-earmark-code"></i> Documentación de la API</h1>
+  <span class="badge text-bg-warning">Solo personal FitLife</span>
+</div>
+<div id="swagger-ui" class="bg-white rounded shadow-sm"></div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.34.0/swagger-ui-bundle.js"
+        integrity="sha384-9Td7MKiIr2S83E1kZyyVi8KdJw/S8CpAvu0llLyMeg0xq/hDGiZJfVn0fV4llCmK" crossorigin="anonymous"></script>
+<script nonce="{{ csp_nonce }}">
+  SwaggerUIBundle({
+    url: '/api/schema/',
+    dom_id: '#swagger-ui',
+    deepLinking: true,
+    // Swagger usa la cookie de sesión (mismo sitio). En las peticiones que
+    // modifican datos le agrego el token CSRF, igual que api.js.
+    requestInterceptor: (req) => {
+      if (!['GET', 'HEAD', 'OPTIONS'].includes((req.method || 'GET').toUpperCase())) req.headers['X-CSRFToken'] = csrfToken();
+      req.credentials = 'same-origin';
+      return req;
+    },
+  });
+</script>
+{% endblock %}

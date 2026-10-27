@@ -1,0 +1,21 @@
+# Servicio systemd de Gunicorn para FitLife (ETAPA 5 de la receta).
+# Se copia a /etc/systemd/system/gunicorn-fitlife.service
+# Tiene otro nombre que el de la Farmacia (gunicorn.service): los dos
+# proyectos corren en la misma instancia, cada uno con su socket.
+#
+# UMask=007 crea el socket con permisos rw-rw----: el grupo www-data (el
+# de Nginx) lo puede usar sin abrirlo a todo el mundo.
+[Unit]
+Description=Gunicorn de FitLife (EVA-3)
+After=network.target postgresql.service
+
+[Service]
+User=ubuntu
+Group=www-data
+UMask=007
+WorkingDirectory=/home/ubuntu/apps/fitlife
+ExecStart=/home/ubuntu/apps/fitlife/venv/bin/gunicorn --workers 3 --bind unix:/home/ubuntu/apps/fitlife/fitlife.sock fitlife.wsgi:application
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

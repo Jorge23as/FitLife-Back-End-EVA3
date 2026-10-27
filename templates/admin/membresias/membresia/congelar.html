@@ -1,0 +1,33 @@
+{% extends "admin/base_site.html" %}
+{% load i18n l10n admin_urls %}
+{# Página intermedia de la acción "Congelar": pide los días y el motivo antes de aplicar la regla #}
+{% block bodyclass %}{{ block.super }} app-{{ opts.app_label }} model-{{ opts.model_name }}{% endblock %}
+{% block breadcrumbs %}
+<ol class="breadcrumbs">
+  <li><a href="{% url 'admin:index' %}">{% translate 'Home' %}</a></li>
+  <li><a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a></li>
+  <li><a href="{% url opts|admin_urlname:'changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a></li>
+  <li aria-current="page">Congelar</li>
+</ol>
+{% endblock %}
+{% block content %}
+<p>Se congelarán estas membresías desde hoy. Los días congelados se suman al término y, mientras dure, el socio no puede
+  entrar ni reservar (sus reservas de esos días se liberan para la lista de espera).</p>
+<ul>
+  {% for m in membresias %}<li><strong>{{ m.socio.nombre }}</strong> · {{ m.plan }} · {{ m.get_estado_display }} · término {{ m.fecha_fin|date:"d-m-Y" }}
+    (usa {{ m.dias_congelados }} de {{ m.plan.dias_congelamiento }} días)</li>{% endfor %}
+</ul>
+<form method="post">{% csrf_token %}
+  {% for m in membresias %}<input type="hidden" name="{{ action_checkbox_name }}" value="{{ m.pk|unlocalize }}">{% endfor %}
+  <input type="hidden" name="action" value="congelar">
+  <fieldset class="module aligned">
+    {% for campo in form %}
+    <div class="form-row"><div>{{ campo.errors }}<div class="flex-container">{{ campo.label_tag }} {{ campo }}</div></div></div>
+    {% endfor %}
+  </fieldset>
+  <div class="submit-row">
+    <input type="submit" name="aplicar" value="Congelar" class="default">
+    <a href="{% url opts|admin_urlname:'changelist' %}" class="button cancel-link">Volver</a>
+  </div>
+</form>
+{% endblock %}

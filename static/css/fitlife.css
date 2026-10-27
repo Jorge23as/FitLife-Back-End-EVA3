@@ -1,0 +1,115 @@
+/* Estilos propios de FitLife (complementan Bootstrap 5) */
+:root {
+  --fl-primario: #ea580c;
+  --fl-primario-oscuro: #c2410c;
+  --fl-oscuro: #0f172a;
+  --fl-oscuro-2: #1e293b;
+  --fl-fondo: #f6f7fb;
+  --fl-verde: #16a34a;
+  --fl-rojo: #dc2626;
+  --fl-amarillo: #d97706;
+  --fl-azul: #2563eb;
+}
+body { background: var(--fl-fondo); min-height: 100vh; display: flex; flex-direction: column; }
+main { flex: 1; }
+
+/* barra de navegación y pie */
+.navbar-fl { background: var(--fl-oscuro); }
+.navbar-fl .navbar-brand { letter-spacing: .5px; }
+.navbar-fl .navbar-brand .bi { color: var(--fl-primario); }
+.navbar-fl .nav-link.active { color: #fff !important; border-bottom: 2px solid var(--fl-primario); }
+.footer-fl { background: var(--fl-oscuro); color: #cbd5e1; }
+
+/* botones y textos con el color de la marca */
+.btn-fl { background: var(--fl-primario); color: #fff; border: none; }
+.btn-fl:hover, .btn-fl:focus { background: var(--fl-primario-oscuro); color: #fff; }
+.btn-outline-fl { color: var(--fl-primario); border-color: var(--fl-primario); }
+.btn-outline-fl:hover { background: var(--fl-primario); color: #fff; }
+.text-fl { color: var(--fl-primario) !important; }
+.bg-fl { background: var(--fl-primario) !important; }
+
+/* portada */
+.hero {
+  background: radial-gradient(circle at 85% 20%, rgba(234, 88, 12, .45), transparent 45%),
+              linear-gradient(135deg, var(--fl-oscuro), var(--fl-oscuro-2));
+  color: #fff; border-radius: 1.25rem;
+}
+.hero .display-5 { font-weight: 800; }
+.tarjeta { border: 0; border-radius: 1rem; box-shadow: 0 .25rem .9rem rgba(15, 23, 42, .06); }
+.tarjeta-plan { transition: transform .15s ease, box-shadow .15s ease; }
+.tarjeta-plan:hover { transform: translateY(-3px); box-shadow: 0 .6rem 1.4rem rgba(15, 23, 42, .1); }
+.precio { font-size: 1.9rem; font-weight: 800; }
+.kpi { font-size: 2rem; font-weight: 800; line-height: 1; }
+.kpi-etiqueta { font-size: .8rem; text-transform: uppercase; letter-spacing: .5px; color: #64748b; }
+
+/* etiquetas de estado (los mismos colores que en el admin) */
+.estado { display: inline-block; padding: .25em .6em; border-radius: 999px; font-size: .78rem; font-weight: 600; }
+.estado-verde { background: #dcfce7; color: #166534; }
+.estado-rojo { background: #fee2e2; color: #991b1b; }
+.estado-azul { background: #dbeafe; color: #1e40af; }
+.estado-amarillo { background: #fef3c7; color: #92400e; }
+.estado-gris { background: #e2e8f0; color: #334155; }
+
+/* barras de cupo / aforo */
+.barra { height: .5rem; background: #e2e8f0; border-radius: 999px; overflow: hidden; }
+.barra > div { height: 100%; border-radius: 999px; transition: width .4s ease; }
+.relleno-verde { background: var(--fl-verde); }
+.relleno-amarillo { background: var(--fl-amarillo); }
+.relleno-rojo { background: var(--fl-rojo); }
+
+/* horario semanal: 1 columna en celular, 2 en tablet y los 7 días en pantallas anchas */
+.semana { display: grid; gap: .75rem; grid-template-columns: 1fr; }
+@media (min-width: 768px) { .semana { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1200px) {
+  .semana { grid-template-columns: repeat(7, minmax(0, 1fr)); gap: .5rem; }
+  .semana .clase-card .card-body { padding: .5rem .6rem; font-size: .85rem; }
+}
+.dia-col { min-width: 0; }
+.dia-titulo { font-weight: 700; }
+.dia-titulo::first-letter { text-transform: uppercase; }
+.dia-hoy .dia-titulo { color: var(--fl-primario); }
+.clase-card { border-left: 4px solid var(--color-actividad, var(--fl-primario)); }
+.clase-card.pasada { opacity: .55; }
+.clase-card .hora { font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* QR del socio */
+.qr-caja { background: #fff; border-radius: 1.25rem; padding: 1rem; display: inline-block;
+           box-shadow: 0 .5rem 1.5rem rgba(15, 23, 42, .12); }
+.qr-caja img { width: min(72vw, 320px); height: auto; display: block; }
+.qr-caja.vencido img { filter: blur(4px) grayscale(1); }
+.cuenta-regresiva { font-variant-numeric: tabular-nums; }
+
+/* control de acceso */
+.resultado-acceso { border-radius: 1rem; min-height: 260px; }
+.resultado-permitido { background: #dcfce7; border: 2px solid var(--fl-verde); }
+.resultado-denegado { background: #fee2e2; border: 2px solid var(--fl-rojo); }
+.resultado-espera { background: #fff; border: 2px dashed #cbd5e1; }
+.resultado-acceso .icono { font-size: 4rem; line-height: 1; }
+.lector-video { width: 100%; max-height: 320px; background: #000; border-radius: .75rem; object-fit: cover; }
+.celular { border: 10px solid var(--fl-oscuro); border-radius: 2rem; padding: .75rem; background: #fff;
+           max-width: 260px; margin: 0 auto; }
+.celular img { width: 100%; }
+
+/* dashboard de aforo */
+.medidor { position: relative; width: 220px; height: 220px; margin: 0 auto; }
+.medidor svg { transform: rotate(-90deg); }
+.medidor .centro { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center;
+                   justify-content: center; }
+.medidor .numero { font-size: 2.6rem; font-weight: 800; line-height: 1; }
+.medidor circle { transition: stroke-dashoffset .6s ease, stroke .3s ease; }
+.grafico-horas { display: flex; align-items: flex-end; gap: 4px; height: 140px; }
+.grafico-horas, .eje-horas { justify-content: center; }
+.grafico-horas .barra-hora { flex: 1 1 0; max-width: 48px; background: var(--fl-primario); border-radius: 4px 4px 0 0; min-height: 2px;
+                             position: relative; transition: height .4s ease; }
+.grafico-horas .barra-hora span { position: absolute; top: -1.2rem; left: 0; right: 0; text-align: center;
+                                  font-size: .7rem; color: #475569; }
+.eje-horas { display: flex; gap: 4px; font-size: .7rem; color: #64748b; }
+.eje-horas div { flex: 1 1 0; max-width: 48px; text-align: center; }
+.punto-vivo { width: .6rem; height: .6rem; border-radius: 50%; background: var(--fl-verde); display: inline-block;
+              animation: latido 1.5s infinite; }
+@keyframes latido { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+.feed { max-height: 360px; overflow-y: auto; }
+
+.error-codigo { font-size: 7rem; font-weight: 800; color: var(--fl-primario); line-height: 1; }
+.tabla-compacta td, .tabla-compacta th { vertical-align: middle; }
+@media print { .navbar, .footer-fl, .no-imprimir { display: none !important; } }

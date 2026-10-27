@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block titulo %}Página no encontrada{% endblock %}
+{% block contenido %}
+<!-- Plantilla 404 propia: reemplaza la página de error de Django -->
+<div class="text-center py-5">
+  <div class="error-codigo">404</div>
+  <h1 class="h3 mt-3">Página no encontrada</h1>
+  <p class="text-muted">La ruta <code>{{ ruta }}</code> no existe en FitLife.</p>
+  <div class="d-flex gap-2 justify-content-center mt-4">
+    <a href="{% url 'inicio' %}" class="btn btn-fl"><i class="bi bi-house"></i> Volver al inicio</a>
+    <a href="{% url 'horario' %}" class="btn btn-outline-secondary"><i class="bi bi-calendar-week"></i> Ver horario</a>
+  </div>
+</div>
+{% endblock %}

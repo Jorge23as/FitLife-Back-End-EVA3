@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+{% block titulo %}Mis clases{% endblock %}
+{% block contenido %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-0"><i class="bi bi-clipboard-check text-fl"></i> Mis clases</h1>
+    <p class="text-muted small mb-0">Revisa quiénes reservaron y pasa lista (desde 15 minutos antes del inicio).</p>
+  </div>
+  <select id="rango" class="form-select form-select-sm w-auto" aria-label="Rango">
+    <option value="semana">Hoy y próximos 7 días</option>
+    <option value="pasadas">Últimos 7 días</option>
+  </select>
+</div>
+<div class="row g-3">
+  <div class="col-lg-5"><div class="list-group" id="clases"></div></div>
+  <div class="col-lg-7">
+    <div class="card tarjeta"><div class="card-body" id="lista">
+      <div class="text-muted">Elige una clase para ver su lista.</div>
+    </div></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}">
+  const sumar = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return isoDia(d); };
+  let claseActual = null;
+  let clases = {};
+
+  async function cargarClases() {
+    const pasadas = document.getElementById('rango').value === 'pasadas';
+    const url = pasadas ? `/api/clases/?mias=true&desde=${sumar(-7)}&hasta=${isoDia()}&ordering=-inicio&page_size=100`
+                        : `/api/clases/?mias=true&desde=${isoDia()}&hasta=${sumar(7)}&page_size=100`;
+    const r = await api(url);
+    if (!r.ok) return mensaje(errorTexto(r.data), 'danger');
+    clases = Object.fromEntries(r.data.results.map((c) => [c.id, c]));
+    document.getElementById('clases').innerHTML = r.data.results.map((c) => `
+      <button class="list-group-item list-group-item-action clase-card ${claseActual === c.id ? 'active' : ''}" style="--color-actividad:${esc(c.color)}"
+              data-accion="verLista" data-id="${c.id}">
+        <div class="d-flex justify-content-between"><strong>${esc(c.actividad_nombre)}</strong>${c.estado === 'CANCELADA' ? badge('CANCELADA') : ''}</div>
+        <div class="small">${diaLargo(c.inicio)} · ${hora(c.inicio)} - ${hora(c.fin)} · ${esc(c.sala_nombre)}</div>
+        <div class="small">${c.ocupados}/${c.cupo} confirmados${c.en_espera ? ` · ${c.en_espera} en espera` : ''}</div>
+      </button>`).join('') || '<div class="text-muted">No tienes clases en este rango.</div>';
+  }
+
+  async function verLista(id) {
+    claseActual = id;
+    const r = await api(`/api/clases/${id}/asistentes/`);
+    if (!r.ok) return mensaje(errorTexto(r.data), 'danger');
+    const confirmados = r.data.filter((x) => x.estado !== 'ESPERA');
+    const espera = r.data.filter((x) => x.estado === 'ESPERA');
+    const fila = (x) => `<tr><td>${esc(x.socio_nombre)}</td><td>${badge(x.estado, x.estado_texto)}</td>
+      <td class="text-end">${x.estado === 'ESPERA' ? `#${x.posicion_espera}` : `
+        <div class="btn-group btn-group-sm">
+          <button class="btn btn-outline-success ${x.estado === 'ASISTIO' ? 'active' : ''}" data-accion="asistencia" data-id="${x.id}" data-asistio="1">Asistió</button>
+          <button class="btn btn-outline-danger ${x.estado === 'AUSENTE' ? 'active' : ''}" data-accion="asistencia" data-id="${x.id}" data-asistio="0">No asistió</button>
+        </div>`}</td></tr>`;
+    const c = clases[id];
+    document.getElementById('lista').innerHTML = `
+      <h2 class="h5">${esc(c.actividad_nombre)} <span class="text-muted fs-6">${diaLargo(c.inicio)} ${hora(c.inicio)} · ${esc(c.sala_nombre)}</span></h2>
+      <h3 class="h6 mt-3">Confirmados (${confirmados.length})</h3>
+      <table class="table table-sm tabla-compacta"><tbody>${confirmados.map(fila).join('') || '<tr><td class="text-muted">Nadie reservó todavía.</td></tr>'}</tbody></table>
+      <h3 class="h6">Lista de espera (${espera.length})</h3>
+      <table class="table table-sm tabla-compacta mb-0"><tbody>${espera.map(fila).join('') || '<tr><td class="text-muted">Sin lista de espera.</td></tr>'}</tbody></table>`;
+    cargarClases();
+  }
+
+  registrarAcciones({
+    verLista: (btn) => verLista(Number(btn.dataset.id)),
+    async asistencia(btn) {
+      const r = await apiPost(`/api/reservas/${btn.dataset.id}/asistencia/`, { asistio: btn.dataset.asistio === '1' });
+      if (!r.ok) return mensaje(errorTexto(r.data), 'warning');
+      verLista(claseActual);
+    },
+  });
+  document.getElementById('rango').addEventListener('change', cargarClases);
+  cargarClases();
+</script>
+{% endblock %}

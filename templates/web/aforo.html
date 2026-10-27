@@ -1,0 +1,152 @@
+{% extends 'base.html' %}
+{% block titulo %}Aforo en tiempo real{% endblock %}
+{% block contenido %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-0"><i class="bi bi-speedometer2 text-fl"></i> Aforo en tiempo real <span id="sede" class="text-muted fs-5"></span></h1>
+    <p class="small text-muted mb-0"><span class="punto-vivo me-1"></span> Se actualiza cada 5 segundos sin recargar la página ·
+      <span id="actualizado"></span> · <span id="horario"></span></p>
+  </div>
+  <a href="{% url 'recepcion' %}" class="btn btn-fl"><i class="bi bi-qr-code-scan"></i> Ir al control de acceso</a>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-lg-4">
+    <div class="card tarjeta h-100"><div class="card-body text-center">
+      <div class="medidor mb-2">
+        <svg viewBox="0 0 120 120" width="220" height="220" aria-hidden="true">
+          <circle cx="60" cy="60" r="52" fill="none" stroke="#e2e8f0" stroke-width="12"/>
+          <circle id="arco" cx="60" cy="60" r="52" fill="none" stroke="#16a34a" stroke-width="12" stroke-linecap="round"
+                  stroke-dasharray="326.7" stroke-dashoffset="326.7"/>
+        </svg>
+        <div class="centro"><div class="numero" id="actual">-</div><div class="text-muted" id="maximo"></div></div>
+      </div>
+      <div id="nivel" class="fs-5"></div>
+      <div class="small text-muted" id="disponibles"></div>
+    </div></div>
+  </div>
+  <div class="col-lg-8">
+    <div class="row g-3 mb-3">
+      <div class="col-6 col-md"><div class="card tarjeta h-100"><div class="card-body"><div class="kpi" id="k-entradas">-</div><div class="kpi-etiqueta">Entradas hoy</div></div></div></div>
+      <div class="col-6 col-md"><div class="card tarjeta h-100"><div class="card-body"><div class="kpi" id="k-salidas">-</div><div class="kpi-etiqueta">Salidas hoy</div></div></div></div>
+      <div class="col-6 col-md"><div class="card tarjeta h-100"><div class="card-body"><div class="kpi" id="k-socios">-</div><div class="kpi-etiqueta">Socios distintos</div></div></div></div>
+      <div class="col-6 col-md"><div class="card tarjeta h-100"><div class="card-body"><div class="kpi text-danger" id="k-denegados">-</div><div class="kpi-etiqueta">Denegados hoy</div></div></div></div>
+      <div class="col-6 col-md"><div class="card tarjeta h-100"><div class="card-body"><div class="kpi" id="k-permanencia">-</div><div class="kpi-etiqueta">Min. promedio</div></div></div></div>
+    </div>
+    <div class="card tarjeta"><div class="card-body">
+      <h2 class="h6">Entradas por hora (hoy)</h2>
+      <div class="grafico-horas mt-4" id="grafico"></div>
+      <div class="eje-horas mt-1" id="eje"></div>
+    </div></div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-5">
+    <div class="card tarjeta h-100"><div class="card-body">
+      <h2 class="h6">Dentro ahora <span class="badge text-bg-secondary" id="n-dentro"></span></h2>
+      <div class="feed"><table class="table table-sm tabla-compacta mb-0">
+        <thead><tr><th>Socio</th><th>Entró</th><th>Tiempo</th><th></th></tr></thead>
+        <tbody id="dentro"></tbody></table></div>
+    </div></div>
+  </div>
+  <div class="col-lg-7">
+    <div class="card tarjeta mb-3"><div class="card-body">
+      <h2 class="h6">Clases en curso y próximas (hoy)</h2>
+      <div id="clases" class="row g-2"></div>
+    </div></div>
+    <div class="row g-3">
+      <div class="col-md-5">
+        <div class="card tarjeta h-100"><div class="card-body">
+          <h2 class="h6">Rechazos por causa</h2>
+          <ul class="list-unstyled small mb-0" id="causas"></ul>
+        </div></div>
+      </div>
+      <div class="col-md-7">
+        <div class="card tarjeta h-100"><div class="card-body">
+          <h2 class="h6">Últimos eventos</h2>
+          <ul class="list-unstyled small feed mb-0" id="eventos"></ul>
+        </div></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}">
+  const NIVELES = { BAJO: ['verde', 'Tranquilo'], MEDIO: ['amarillo', 'Moderado'], ALTO: ['rojo', 'Alto'], COMPLETO: ['rojo', 'Completo'] };
+  const TRAZO = { verde: '#16a34a', amarillo: '#d97706', rojo: '#dc2626' };
+  const CIRCUNFERENCIA = 2 * Math.PI * 52;
+  const minutos = (m) => (m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}` : `${m} min`);
+
+  // GET /api/aforo/ -> todo el panel (visitas abiertas = gente dentro)
+  async function cargar() {
+    const r = await api('/api/aforo/');
+    if (!r.ok) return mensaje(errorTexto(r.data), 'danger');
+    const d = r.data;
+    const [color, texto] = NIVELES[d.nivel];
+    document.getElementById('sede').textContent = `· ${d.sede.nombre}`;
+    document.getElementById('actualizado').textContent = `actualizado a las ${new Date(d.actualizado).toLocaleTimeString('es-CL', { timeZone: ZONA, hourCycle: 'h23' })}`;
+    document.getElementById('horario').innerHTML = d.sede.abierta
+      ? `<span class="text-success">Abierto</span> de ${d.sede.hora_apertura.slice(0, 5)} a ${d.sede.hora_cierre.slice(0, 5)}`
+      : `<span class="text-danger">Cerrado</span> (abre a las ${d.sede.hora_apertura.slice(0, 5)})`;
+
+    // medidor circular: el largo del arco es el porcentaje de ocupación
+    const arco = document.getElementById('arco');
+    arco.setAttribute('stroke-dashoffset', CIRCUNFERENCIA * (1 - Math.min(d.porcentaje, 100) / 100));
+    arco.setAttribute('stroke', TRAZO[colorPorcentaje(d.porcentaje)]);
+    document.getElementById('actual').textContent = d.actual;
+    document.getElementById('maximo').textContent = `de ${d.maximo} (${d.porcentaje}%)`;
+    document.getElementById('nivel').innerHTML = `<span class="estado estado-${color}">${texto}</span>`;
+    document.getElementById('disponibles').textContent = `${d.disponibles} lugares disponibles`;
+
+    document.getElementById('k-entradas').textContent = d.hoy.entradas;
+    document.getElementById('k-salidas').textContent = d.hoy.salidas;
+    document.getElementById('k-socios').textContent = d.hoy.socios;
+    document.getElementById('k-denegados').textContent = d.hoy.denegados;
+    document.getElementById('k-permanencia').textContent = d.hoy.permanencia_promedio_min ?? '-';
+
+    const mayor = Math.max(1, ...d.por_hora.map((h) => h.entradas));
+    document.getElementById('grafico').innerHTML = d.por_hora.map((h) =>
+      `<div class="barra-hora" style="height:${(h.entradas * 100) / mayor}%" title="${h.hora}:00 - ${h.entradas} entradas"><span>${h.entradas || ''}</span></div>`).join('');
+    document.getElementById('eje').innerHTML = d.por_hora.map((h) => `<div>${h.hora}</div>`).join('');
+
+    document.getElementById('n-dentro').textContent = d.dentro.length;
+    document.getElementById('dentro').innerHTML = d.dentro.map((v) => `<tr>
+        <td>${esc(v.nombre)}</td><td>${hora(v.entrada)}</td><td>${minutos(v.minutos)}</td>
+        <td class="text-end"><button class="btn btn-sm btn-outline-secondary" data-accion="salida" data-id="${v.visita}" title="Marcar salida"><i class="bi bi-box-arrow-right"></i></button></td>
+      </tr>`).join('') || '<tr><td colspan="4" class="text-muted">No hay nadie dentro.</td></tr>';
+
+    const clases = [...d.clases_en_curso.map((c) => ({ ...c, curso: true })), ...d.proximas_clases];
+    document.getElementById('clases').innerHTML = clases.map((c) => `
+      <div class="col-md-6"><div class="card clase-card h-100" style="--color-actividad:${esc(c.color)}"><div class="card-body py-2">
+        <div class="d-flex justify-content-between"><span class="fw-semibold">${esc(c.actividad)}</span>
+          ${c.curso ? '<span class="estado estado-verde">En curso</span>' : `<span class="small">${hora(c.inicio)}</span>`}</div>
+        <div class="small text-muted mb-1">${esc(c.sala)} · ${esc(c.instructor)}</div>
+        ${barra(c.ocupados, c.cupo)}
+        <div class="small mt-1">${c.ocupados}/${c.cupo} cupos${c.espera ? ` · ${c.espera} en espera` : ''}</div>
+      </div></div></div>`).join('') || '<div class="text-muted small">No quedan clases hoy.</div>';
+
+    document.getElementById('causas').innerHTML = d.denegados_por_causa.map((c) =>
+      `<li class="d-flex justify-content-between border-bottom py-1"><span>${esc(c.texto)}</span><strong>${c.cantidad}</strong></li>`).join('')
+      || '<li class="text-muted">Sin rechazos hoy.</li>';
+
+    document.getElementById('eventos').innerHTML = d.ultimos_eventos.map((e) => `
+      <li class="border-bottom py-1"><span class="text-muted">${hora(e.hora)}</span> ${badge(e.resultado === 'PERMITIDO' ? e.tipo : 'DENEGADO', e.resultado === 'PERMITIDO' ? undefined : 'Denegado')}
+        ${esc(e.socio || 'QR desconocido')} <span class="text-muted">${e.resultado === 'DENEGADO' ? `· ${esc(e.motivo)}` : ''}</span></li>`).join('')
+      || '<li class="text-muted">Sin eventos hoy.</li>';
+  }
+
+  registrarAcciones({
+    async salida(btn) {
+      if (!await preguntar('Marcar salida', 'El socio se fue sin pasar su QR. ¿Registrar su salida ahora?', 'Registrar salida')) return;
+      const r = await apiPost(`/api/visitas/${btn.dataset.id}/salida/`);
+      if (!r.ok) return mensaje(errorTexto(r.data), 'danger');
+      mensaje(`Salida registrada para ${r.data.socio_nombre}.`, 'info');
+      cargar();
+    },
+  });
+  cadaCierto(cargar, 5000);
+</script>
+{% endblock %}

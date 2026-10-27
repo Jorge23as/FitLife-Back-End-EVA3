@@ -1,0 +1,112 @@
+{% extends 'base.html' %}
+{% block titulo %}Inicio{% endblock %}
+{% block contenido %}
+<section class="hero p-4 p-md-5 mb-4">
+  <div class="row align-items-center g-4">
+    <div class="col-lg-7">
+      <span class="badge bg-fl mb-3">Centro deportivo FitLife</span>
+      <h1 class="display-5">Entrena sin filas ni sobrecupos.</h1>
+      <p class="lead text-white-50 mb-4">Entra con tu QR, reserva tus clases (con lista de espera automática) y
+        revisa en vivo cuánta gente hay antes de venir.</p>
+      <div class="d-flex flex-wrap gap-2">
+        {% if rol == 'SOCIO' %}
+          <a href="{% url 'mi-qr' %}" class="btn btn-fl btn-lg"><i class="bi bi-qr-code"></i> Mostrar mi QR</a>
+          <a href="{% url 'horario' %}" class="btn btn-outline-light btn-lg">Reservar una clase</a>
+        {% elif es_staff_fitlife %}
+          <a href="{% url 'recepcion' %}" class="btn btn-fl btn-lg"><i class="bi bi-qr-code-scan"></i> Control de acceso</a>
+          <a href="{% url 'aforo' %}" class="btn btn-outline-light btn-lg">Ver aforo</a>
+        {% elif rol == 'INSTRUCTOR' %}
+          <a href="{% url 'instructor' %}" class="btn btn-fl btn-lg"><i class="bi bi-clipboard-check"></i> Mis clases</a>
+        {% else %}
+          <a href="{% url 'login' %}" class="btn btn-fl btn-lg"><i class="bi bi-box-arrow-in-right"></i> Ingresar</a>
+          <a href="{% url 'horario' %}" class="btn btn-outline-light btn-lg">Ver horario de clases</a>
+        {% endif %}
+      </div>
+    </div>
+    <div class="col-lg-5">
+      <!-- aforo público: solo cuánta gente hay, sin nombres (GET /api/aforo/publico/) -->
+      <div class="card tarjeta text-dark"><div class="card-body p-4">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <span class="kpi-etiqueta"><span class="punto-vivo me-1"></span> Aforo en este momento</span>
+          <span id="aforo-sede" class="small text-muted"></span>
+        </div>
+        <div class="d-flex align-items-end gap-2 mb-2">
+          <span id="aforo-actual" class="kpi">-</span><span class="text-muted mb-1" id="aforo-maximo"></span>
+          <span id="aforo-nivel" class="ms-auto"></span>
+        </div>
+        <div id="aforo-barra"></div>
+        <div id="aforo-nota" class="small text-muted mt-2"></div>
+      </div></div>
+    </div>
+  </div>
+</section>
+
+<h2 class="h4 mb-3"><i class="bi bi-tags text-fl"></i> Planes</h2>
+<div id="planes" class="row g-3 mb-5"><div class="text-muted">Cargando planes...</div></div>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2 class="h4 mb-0"><i class="bi bi-calendar-day text-fl"></i> Clases de hoy</h2>
+  <a href="{% url 'horario' %}" class="btn btn-sm btn-outline-fl">Horario completo</a>
+</div>
+<div id="clases-hoy" class="row g-3"><div class="text-muted">Cargando clases...</div></div>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}">
+  const NIVELES = { BAJO: ['verde', 'Tranquilo'], MEDIO: ['amarillo', 'Moderado'], ALTO: ['rojo', 'Lleno'], COMPLETO: ['rojo', 'Completo'] };
+
+  async function cargarAforo() {
+    const r = await api('/api/aforo/publico/');
+    if (!r.ok) return;
+    const a = r.data;
+    const [color, texto] = NIVELES[a.nivel];
+    document.getElementById('aforo-sede').textContent = a.sede;
+    document.getElementById('aforo-actual').textContent = a.actual;
+    document.getElementById('aforo-maximo').textContent = `de ${a.maximo} personas (${a.porcentaje}%)`;
+    document.getElementById('aforo-nivel').innerHTML = `<span class="estado estado-${color}">${texto}</span>`;
+    document.getElementById('aforo-barra').innerHTML = barra(a.actual, a.maximo);
+    document.getElementById('aforo-nota').textContent = a.abierta
+      ? `Actualizado a las ${hora(a.actualizado)} · se actualiza solo`
+      : 'La sede está cerrada en este momento.';
+  }
+
+  async function cargarPlanes() {
+    const r = await api('/api/planes/');
+    const zona = document.getElementById('planes');
+    if (!r.ok) { zona.innerHTML = '<div class="text-danger">No se pudieron cargar los planes.</div>'; return; }
+    zona.innerHTML = r.data.map((p) => `
+      <div class="col-md-6 col-lg-4 col-xl"><div class="card tarjeta tarjeta-plan h-100"><div class="card-body">
+        <h3 class="h6 text-uppercase text-muted">${esc(p.nombre)}</h3>
+        <div class="precio">${clp(p.precio)}</div>
+        <div class="text-muted small mb-2">${p.duracion_dias} días</div>
+        <p class="small">${esc(p.descripcion)}</p>
+        <ul class="list-unstyled small mb-0">
+          <li><i class="bi bi-${p.incluye_clases ? 'check-circle text-success' : 'x-circle text-danger'}"></i>
+            ${p.incluye_clases ? `Clases grupales${p.max_reservas_activas ? ` (${p.max_reservas_activas} reservas a la vez)` : ' ilimitadas'}` : 'Sin clases grupales'}</li>
+          <li><i class="bi bi-snow2 text-primary"></i> ${p.dias_congelamiento ? `Congela hasta ${p.dias_congelamiento} días` : 'No se puede congelar'}</li>
+          <li><i class="bi bi-qr-code text-fl"></i> Acceso con QR</li>
+        </ul>
+      </div></div></div>`).join('') || '<div class="text-muted">No hay planes a la venta.</div>';
+  }
+
+  async function cargarClasesHoy() {
+    const hoy = isoDia();
+    const r = await api(`/api/clases/?desde=${hoy}&hasta=${hoy}&estado=PROGRAMADA&page_size=50`);
+    const zona = document.getElementById('clases-hoy');
+    const ahora = new Date();
+    const clases = r.ok ? r.data.results.filter((c) => new Date(c.fin) > ahora) : [];
+    zona.innerHTML = clases.map((c) => `
+      <div class="col-md-6 col-lg-3"><div class="card tarjeta clase-card h-100" style="--color-actividad:${esc(c.color)}"><div class="card-body">
+        <div class="hora">${hora(c.inicio)} - ${hora(c.fin)}</div>
+        <div class="fw-semibold">${esc(c.actividad_nombre)}</div>
+        <div class="small text-muted mb-2">${esc(c.instructor_nombre)} · ${esc(c.sala_nombre)}</div>
+        ${barra(c.ocupados, c.cupo)}
+        <div class="small mt-1">${c.disponibles ? `${c.disponibles} cupos libres` : `<span class="text-danger">Llena</span>${c.en_espera ? ` · ${c.en_espera} en espera` : ''}`}</div>
+      </div></div></div>`).join('') || '<div class="text-muted">No quedan clases para hoy. Revisa el horario de la semana.</div>';
+  }
+
+  cadaCierto(cargarAforo, 10000);
+  cargarPlanes();
+  cargarClasesHoy();
+</script>
+{% endblock %}

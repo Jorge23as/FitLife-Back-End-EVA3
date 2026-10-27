@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block titulo %}{{ titulo|default:'Ocurrió un error' }}{% endblock %}
+{% block contenido %}
+<!-- Página de error genérica (400, 405, 409, 500...), con el mismo estilo de la 401, 403 y 404 -->
+<div class="text-center py-5">
+  <div class="error-codigo">{{ codigo|default:'500' }}</div>
+  <h1 class="h3 mt-3">{{ titulo|default:'Ocurrió un error' }}</h1>
+  {% if ruta %}<p class="text-muted">No se pudo completar la solicitud a <code>{{ ruta }}</code>.</p>{% endif %}
+  <p class="text-muted">Si el problema continúa, vuelve a intentarlo más tarde.</p>
+  <div class="d-flex gap-2 justify-content-center mt-4">
+    <a href="{% url 'inicio' %}" class="btn btn-fl"><i class="bi bi-house"></i> Volver al inicio</a>
+  </div>
+</div>
+{% endblock %}

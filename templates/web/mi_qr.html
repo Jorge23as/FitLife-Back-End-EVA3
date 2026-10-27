@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+{% block titulo %}Mi QR{% endblock %}
+{% block contenido %}
+<div class="text-center">
+  <h1 class="h4 mb-1">{{ user.get_full_name }}</h1>
+  <p class="text-muted mb-3">Muestra este código en el lector de la entrada</p>
+  <div id="qr-caja" class="qr-caja mb-3"><img id="qr" alt="Código QR de acceso" src="data:,"></div>
+  <div class="mb-2">
+    <span class="cuenta-regresiva fw-semibold" id="cuenta">Generando...</span>
+  </div>
+  <div id="estado" class="mb-3"></div>
+  <p class="small text-muted mx-auto" style="max-width: 32rem">
+    <i class="bi bi-shield-check"></i> Por seguridad el QR cambia cada 30 segundos y cada uno vale solo 60 segundos:
+    una captura de pantalla no sirve para que entre otra persona.
+  </p>
+  <a href="{% url 'mi-cuenta' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i> Volver a mi cuenta</a>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}">
+  const RENOVAR = 30;  // segundos
+  let generado = 0;
+  let vigencia = 60;
+  let pidiendo = false;
+
+  // GET /api/mi-qr/ -> un QR nuevo, firmado por el servidor, que vale 60 s
+  async function nuevoQr() {
+    if (pidiendo) return;
+    pidiendo = true;
+    const r = await api('/api/mi-qr/');
+    pidiendo = false;
+    if (!r.ok) return mensaje(errorTexto(r.data), 'danger');
+    document.getElementById('qr').src = r.data.imagen;
+    document.getElementById('qr-caja').classList.remove('vencido');
+    generado = Date.now();
+    vigencia = r.data.vigencia_segundos;
+  }
+
+  function tic() {
+    const pasados = (Date.now() - generado) / 1000;
+    if (pasados >= RENOVAR) { nuevoQr(); return; }
+    document.getElementById('cuenta').textContent = `Se renueva en ${Math.ceil(RENOVAR - pasados)} s`;
+    if (pasados >= vigencia) document.getElementById('qr-caja').classList.add('vencido');
+  }
+
+  async function estadoMembresia() {
+    const r = await api('/api/mi-cuenta/');
+    if (!r.ok) return;
+    const m = r.data.membresia;
+    document.getElementById('estado').innerHTML = `${badge(m.estado, m.texto)} ${m.plan ? `<span class="small text-muted ms-1">${esc(m.plan)} · vence el ${fecha(m.fecha_fin)}</span>` : ''}`;
+  }
+
+  // pide que la pantalla no se apague mientras se muestra el QR (si el navegador lo permite)
+  if ('wakeLock' in navigator) navigator.wakeLock.request('screen').catch(() => {});
+  // si la pestaña estuvo en segundo plano, al volver el QR se renueva de inmediato
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') nuevoQr(); });
+
+  nuevoQr();
+  estadoMembresia();
+  setInterval(tic, 1000);
+</script>
+{% endblock %}

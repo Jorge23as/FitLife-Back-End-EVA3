@@ -1,0 +1,288 @@
+{% extends 'base.html' %}
+{% block titulo %}Control de acceso{% endblock %}
+{% block contenido %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-0"><i class="bi bi-qr-code-scan text-fl"></i> Control de acceso</h1>
+    <p class="text-muted small mb-0">Lee el QR del socio: si está dentro se registra su salida; si no, su entrada (si cumple las reglas).</p>
+  </div>
+  <div class="d-flex align-items-center gap-2">
+    <label for="modo" class="small text-muted">Modo</label>
+    <select id="modo" class="form-select form-select-sm w-auto">
+      <option value="AUTO">Automático (entrada / salida)</option>
+      <option value="ENTRADA">Solo entrada</option>
+      <option value="SALIDA">Solo salida</option>
+    </select>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-5">
+    <div class="card tarjeta"><div class="card-body">
+      <ul class="nav nav-pills nav-fill mb-3" role="tablist">
+        <li class="nav-item"><button class="nav-link active" data-bs-toggle="pill" data-bs-target="#tab-simular" type="button"><i class="bi bi-phone"></i> Simular QR</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-camara" type="button"><i class="bi bi-camera-video"></i> Cámara</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-manual" type="button"><i class="bi bi-keyboard"></i> Código</button></li>
+      </ul>
+      <div class="tab-content">
+        <!-- Simulación: muestra el QR vigente del socio (como su celular) y simula la lectura -->
+        <div class="tab-pane fade show active" id="tab-simular">
+          <input id="buscar-socio" class="form-control form-control-sm mb-2" placeholder="Buscar socio por nombre o RUT">
+          <select id="socio" class="form-select mb-3" size="6" aria-label="Socio"></select>
+          <div id="celular" class="celular text-center d-none">
+            <div class="small fw-semibold mb-1" id="cel-nombre"></div>
+            <img id="cel-qr" alt="QR del socio" src="data:,">
+            <div class="small text-muted" id="cel-vigencia"></div>
+          </div>
+          <div class="d-grid gap-2 mt-3">
+            <button class="btn btn-fl" data-accion="simular" id="btn-simular" disabled><i class="bi bi-upc-scan"></i> Simular lectura de este QR</button>
+            <div class="btn-group">
+              <button class="btn btn-sm btn-outline-secondary" data-accion="nuevoQr" id="btn-nuevo" disabled><i class="bi bi-arrow-repeat"></i> Generar QR nuevo</button>
+              <button class="btn btn-sm btn-outline-danger" data-accion="qrAlterado" id="btn-alterado" disabled><i class="bi bi-bug"></i> Probar QR alterado</button>
+            </div>
+            <div class="form-text">El QR vale 60 s: si esperas más sin generar uno nuevo, la lectura se rechaza por expirado.</div>
+          </div>
+        </div>
+        <!-- Cámara: lee el QR del celular del socio (necesita https o localhost) -->
+        <div class="tab-pane fade" id="tab-camara">
+          <video id="video" class="lector-video mb-2" playsinline muted></video>
+          <canvas id="lienzo" class="d-none"></canvas>
+          <div class="d-flex gap-2">
+            <button class="btn btn-fl flex-fill" data-accion="encenderCamara" id="btn-camara"><i class="bi bi-camera-video"></i> Encender cámara</button>
+            <button class="btn btn-outline-secondary" data-accion="apagarCamara"><i class="bi bi-stop-circle"></i></button>
+          </div>
+          <div id="camara-estado" class="small text-muted mt-2">La cámara solo funciona en https (en el dominio del sitio) o en localhost.</div>
+        </div>
+        <!-- Código a mano (lector USB que "escribe" el texto, o pegar el contenido del QR) -->
+        <div class="tab-pane fade" id="tab-manual">
+          <form id="form-manual">
+            <textarea id="codigo-manual" class="form-control mb-2" rows="4" placeholder="FITLIFE:..." required></textarea>
+            <button class="btn btn-fl w-100"><i class="bi bi-check2-circle"></i> Validar código</button>
+          </form>
+        </div>
+      </div>
+    </div></div>
+  </div>
+
+  <div class="col-lg-7">
+    <div id="resultado" class="resultado-acceso resultado-espera p-4 mb-3 d-flex flex-column justify-content-center text-center">
+      <div class="icono text-muted"><i class="bi bi-qr-code"></i></div>
+      <div class="h5 mt-2 text-muted">Esperando lectura de un QR...</div>
+    </div>
+    <div class="card tarjeta mb-3"><div class="card-body py-3">
+      <div class="d-flex justify-content-between small mb-1">
+        <span><span class="punto-vivo me-1"></span> Aforo: <strong id="aforo-texto">-</strong></span>
+        <a href="{% url 'aforo' %}" class="small">Ver dashboard</a>
+      </div>
+      <div id="aforo-barra"></div>
+    </div></div>
+    <div class="card tarjeta"><div class="card-body">
+      <h2 class="h6 mb-2">Últimas lecturas</h2>
+      <div class="table-responsive"><table class="table table-sm tabla-compacta mb-0">
+        <thead><tr><th>Hora</th><th>Socio</th><th>Tipo</th><th>Resultado</th><th>Método</th></tr></thead>
+        <tbody id="ultimos"></tbody>
+      </table></div>
+    </div></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"
+        integrity="sha384-b5Ya4Bq3qCyz39m2ISh+4DxjAIljdeFwK/BsXLuj9gugaNwAcj/ia15fxNZL9Nlx" crossorigin="anonymous"></script>
+<script nonce="{{ csp_nonce }}">
+  let socios = [];
+  let qrSimulado = null;   // { codigo, generado }
+
+  // pitido corto: agudo si pasa, grave si se rechaza (Web Audio, sin archivos)
+  function pitido(ok) {
+    try {
+      const ctx = new AudioContext();
+      const osc = ctx.createOscillator();
+      osc.frequency.value = ok ? 880 : 220;
+      osc.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + (ok ? 0.15 : 0.4));
+    } catch (e) { /* sin sonido */ }
+  }
+
+  // POST /api/accesos/validar/ -> el servidor decide (firma, vigencia, membresía, aforo, horario)
+  async function validar(codigo, metodo) {
+    const r = await apiPost('/api/accesos/validar/', { codigo, metodo, modo: document.getElementById('modo').value });
+    if (!r.ok) { mensaje(errorTexto(r.data), 'danger'); return null; }
+    pintarResultado(r.data);
+    pitido(r.data.permitido);
+    cargarUltimos();
+    pintarAforo(r.data.aforo);
+    return r.data;
+  }
+
+  function pintarResultado(d) {
+    const el = document.getElementById('resultado');
+    el.className = `resultado-acceso p-4 mb-3 ${d.permitido ? 'resultado-permitido' : 'resultado-denegado'}`;
+    const titulo = d.permitido ? (d.tipo === 'SALIDA' ? 'SALIDA REGISTRADA' : 'ENTRADA PERMITIDA') : 'ACCESO DENEGADO';
+    const m = d.socio && d.socio.membresia;
+    el.innerHTML = `
+      <div class="d-flex align-items-center gap-3">
+        <div class="icono ${d.permitido ? 'text-success' : 'text-danger'}"><i class="bi bi-${d.permitido ? 'check-circle-fill' : 'x-octagon-fill'}"></i></div>
+        <div class="text-start">
+          <div class="h3 mb-0 fw-bold">${titulo}</div>
+          <div class="fs-5">${esc(d.motivo)}</div>
+          <div class="small text-muted">${fechaHora(d.fecha_hora)}</div>
+        </div>
+      </div>
+      ${d.socio ? `<hr><div class="row text-start g-2">
+        <div class="col-sm-6"><div class="kpi-etiqueta">Socio</div><div class="fw-semibold fs-5">${esc(d.socio.nombre)}</div><div class="small">${esc(d.socio.rut)}</div></div>
+        <div class="col-sm-6"><div class="kpi-etiqueta">Membresía</div>
+          <div>${badge(m.estado, m.texto)} ${m.plan ? esc(m.plan) : ''}</div>
+          ${m.fecha_fin ? `<div class="small">Vence el ${fecha(m.fecha_fin)} · ${m.dias_restantes} días restantes</div>` : ''}</div>
+        ${d.clase_de_hoy ? `<div class="col-12"><div class="alert alert-light border mb-0 py-2"><i class="bi bi-calendar-check text-fl"></i>
+          Tiene ${esc(d.clase_de_hoy.actividad)} a las ${hora(d.clase_de_hoy.inicio)} en ${esc(d.clase_de_hoy.sala)} (${esc(d.clase_de_hoy.estado)})</div></div>` : ''}
+      </div>` : ''}`;
+  }
+
+  function pintarAforo(a) {
+    document.getElementById('aforo-texto').textContent = `${a.actual} / ${a.maximo} personas (${a.porcentaje}%)`;
+    document.getElementById('aforo-barra').innerHTML = barra(a.actual, a.maximo);
+  }
+
+  async function cargarUltimos() {
+    const r = await api('/api/accesos/?page_size=8');
+    if (!r.ok) return;
+    document.getElementById('ultimos').innerHTML = r.data.results.map((x) => `<tr>
+      <td>${hora(x.fecha_hora)}</td><td>${esc(x.socio_nombre || 'QR desconocido')}</td><td>${badge(x.tipo)}</td>
+      <td>${badge(x.resultado)} ${x.resultado === 'DENEGADO' ? `<span class="small text-muted">${esc(x.causa_texto)}</span>` : ''}</td>
+      <td class="small">${esc(x.metodo_texto)}</td></tr>`).join('') || '<tr><td colspan="5" class="text-muted">Sin lecturas hoy.</td></tr>';
+  }
+
+  async function cargarAforo() {
+    const r = await api('/api/aforo/publico/');
+    if (r.ok) pintarAforo(r.data);
+  }
+
+  // ---- simulación ----
+  function pintarSocios() {
+    const filtro = document.getElementById('buscar-socio').value.trim().toLowerCase();
+    document.getElementById('socio').innerHTML = socios
+      .filter((s) => !filtro || `${s.nombre} ${s.rut}`.toLowerCase().includes(filtro))
+      .map((s) => `<option value="${s.id}">${esc(s.nombre)} · ${esc(s.rut)} · ${esc(s.membresia.texto)}</option>`).join('');
+  }
+
+  async function cargarSocios() {
+    const r = await api('/api/socios/?page_size=200&usuario__is_active=true&ordering=usuario__last_name');
+    if (!r.ok) return mensaje(errorTexto(r.data), 'danger');
+    socios = r.data.results;
+    pintarSocios();
+  }
+
+  const BOTONES_SIMULACION = ['btn-simular', 'btn-nuevo', 'btn-alterado'];
+  async function generarQrSimulado() {
+    const id = document.getElementById('socio').value;
+    if (!id) return;
+    // mientras llega el QR nuevo no se puede simular (si no, se leería el QR del socio anterior)
+    qrSimulado = null;
+    BOTONES_SIMULACION.forEach((b) => { document.getElementById(b).disabled = true; });
+    const r = await api(`/api/socios/${id}/qr/`);
+    if (!r.ok) return mensaje(errorTexto(r.data), 'danger');
+    qrSimulado = { codigo: r.data.codigo, generado: Date.now() };
+    document.getElementById('celular').classList.remove('d-none');
+    document.getElementById('cel-nombre').textContent = r.data.nombre;
+    document.getElementById('cel-qr').src = r.data.imagen;
+    BOTONES_SIMULACION.forEach((b) => { document.getElementById(b).disabled = false; });
+  }
+
+  setInterval(() => {
+    if (!qrSimulado) return;
+    const edad = Math.round((Date.now() - qrSimulado.generado) / 1000);
+    document.getElementById('cel-vigencia').textContent = edad < 60 ? `QR generado hace ${edad} s (vale 60 s)` : `QR vencido hace ${edad - 60} s`;
+  }, 1000);
+
+  // ---- cámara: BarcodeDetector del navegador si existe; si no, jsQR ----
+  let stream = null;
+  let detector = null;
+  let escaneando = false;
+  let ultimo = { texto: '', momento: 0 };
+
+  async function leerCuadro() {
+    if (!escaneando) return;
+    const video = document.getElementById('video');
+    let texto = null;
+    if (video.readyState >= 2) {
+      if (detector) {
+        const codigos = await detector.detect(video).catch(() => []);
+        texto = codigos.length ? codigos[0].rawValue : null;
+      } else if (window.jsQR) {
+        const lienzo = document.getElementById('lienzo');
+        const escala = Math.min(1, 640 / video.videoWidth);
+        lienzo.width = Math.round(video.videoWidth * escala);
+        lienzo.height = Math.round(video.videoHeight * escala);
+        const ctx = lienzo.getContext('2d', { willReadFrequently: true });
+        ctx.drawImage(video, 0, 0, lienzo.width, lienzo.height);
+        const imagen = ctx.getImageData(0, 0, lienzo.width, lienzo.height);
+        const qr = jsQR(imagen.data, imagen.width, imagen.height, { inversionAttempts: 'dontInvert' });
+        texto = qr ? qr.data : null;
+      }
+    }
+    // el mismo QR frente a la cámara no se vuelve a validar por 10 s (si no, entraría y saldría)
+    if (texto && (texto !== ultimo.texto || Date.now() - ultimo.momento > 10000)) {
+      ultimo = { texto, momento: Date.now() };
+      await validar(texto, 'CAMARA');
+      setTimeout(leerCuadro, 2000);  // pausa para que recepción vea el resultado
+      return;
+    }
+    setTimeout(leerCuadro, 150);
+  }
+
+  registrarAcciones({
+    simular() { if (qrSimulado) validar(qrSimulado.codigo, 'SIMULADO'); },
+    nuevoQr: generarQrSimulado,
+    qrAlterado() {
+      if (!qrSimulado) return;
+      // cambia la última letra de la firma: el servidor lo rechaza por firma inválida
+      const c = qrSimulado.codigo;
+      validar(c.slice(0, -1) + (c.endsWith('A') ? 'B' : 'A'), 'SIMULADO');
+    },
+    async encenderCamara() {
+      const estado = document.getElementById('camara-estado');
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        estado.textContent = 'Este navegador no permite usar la cámara aquí (se necesita https). Usa la simulación.';
+        return;
+      }
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      } catch (e) {
+        estado.textContent = `No se pudo abrir la cámara: ${e.message}`;
+        return;
+      }
+      const video = document.getElementById('video');
+      video.srcObject = stream;
+      await video.play();
+      if ('BarcodeDetector' in window) {
+        try {
+          if ((await BarcodeDetector.getSupportedFormats()).includes('qr_code')) detector = new BarcodeDetector({ formats: ['qr_code'] });
+        } catch (e) { detector = null; }
+      }
+      estado.textContent = `Cámara encendida (${detector ? 'lector del navegador' : 'jsQR'}). Acerca el QR del socio.`;
+      escaneando = true;
+      leerCuadro();
+    },
+    apagarCamara() {
+      escaneando = false;
+      if (stream) stream.getTracks().forEach((t) => t.stop());
+      stream = null;
+      document.getElementById('camara-estado').textContent = 'Cámara apagada.';
+    },
+  });
+
+  document.getElementById('buscar-socio').addEventListener('input', pintarSocios);
+  document.getElementById('socio').addEventListener('change', generarQrSimulado);
+  document.getElementById('form-manual').addEventListener('submit', (e) => {
+    e.preventDefault();
+    validar(document.getElementById('codigo-manual').value.trim(), 'MANUAL');
+  });
+
+  cargarSocios();
+  cadaCierto(cargarUltimos, 10000);
+  cadaCierto(cargarAforo, 10000);
+</script>
+{% endblock %}

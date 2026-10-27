@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+{% block titulo %}Ingresar{% endblock %}
+{% block contenido %}
+<div class="row justify-content-center">
+  <div class="col-md-6 col-lg-5">
+    <div class="card tarjeta"><div class="card-body p-4">
+      <div class="text-center mb-3">
+        <i class="bi bi-lightning-charge-fill text-fl display-5"></i>
+        <h1 class="h4 mt-2 mb-0">Ingresar a FitLife</h1>
+        <p class="text-muted small mb-0">Socios, recepción, instructores y administración</p>
+      </div>
+      <form id="form-login">
+        <div class="mb-3"><label class="form-label" for="usuario">Usuario</label>
+          <input id="usuario" name="username" class="form-control" autocomplete="username" required autofocus></div>
+        <div class="mb-3"><label class="form-label" for="clave">Contraseña</label>
+          <input id="clave" name="password" type="password" class="form-control" autocomplete="current-password" required></div>
+        <!-- intentos fallidos: se muestra después del primer error -->
+        <div id="intentos" class="d-none mb-3">
+          <div class="d-flex justify-content-between small mb-1">
+            <span>Intentos fallidos</span><span id="intentos-texto"></span></div>
+          <div id="intentos-puntos" class="d-flex gap-1"></div>
+        </div>
+        <button id="btn-ingresar" class="btn btn-fl w-100">Ingresar</button>
+      </form>
+      <p class="small text-muted text-center mt-3 mb-0">
+        <i class="bi bi-shield-lock"></i> Sesión segura: se cierra sola tras 1 hora sin actividad.
+      </p>
+    </div></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}">
+  const params = new URLSearchParams(location.search);
+  if (params.get('salio')) mensaje('Sesión cerrada correctamente.', 'info');
+  if (params.get('expirada')) mensaje('Tu sesión expiró. Vuelve a ingresar.', 'warning');
+
+  // Intentos fallidos: 5 cuadritos, rojos los usados (el servidor los cuenta por IP)
+  const MAX_INTENTOS = 5;
+  function pintarIntentos(fallidos) {
+    document.getElementById('intentos').classList.remove('d-none');
+    document.getElementById('intentos-texto').textContent = `${fallidos} de ${MAX_INTENTOS}`;
+    document.getElementById('intentos-puntos').innerHTML = Array.from({ length: MAX_INTENTOS }, (_, i) =>
+      `<div class="flex-fill rounded ${i < fallidos ? 'bg-danger' : 'bg-secondary-subtle'}" style="height: 8px"></div>`).join('');
+  }
+
+  // Bloqueo (429): deshabilito el botón y muestro la cuenta regresiva
+  let reloj = null;
+  function bloquear(segundos) {
+    const btn = document.getElementById('btn-ingresar');
+    const fin = Date.now() + segundos * 1000;
+    clearInterval(reloj);
+    btn.disabled = true;
+    const tic = () => {
+      const quedan = Math.max(0, Math.round((fin - Date.now()) / 1000));
+      if (!quedan) {
+        clearInterval(reloj);
+        btn.disabled = false;
+        btn.textContent = 'Ingresar';
+        document.getElementById('intentos').classList.add('d-none');
+        return;
+      }
+      btn.textContent = `Bloqueado por seguridad: ${Math.floor(quedan / 60)}:${String(quedan % 60).padStart(2, '0')}`;
+    };
+    tic();
+    reloj = setInterval(tic, 1000);
+  }
+
+  // POST /api/auth/login/ (con el token CSRF) -> Django crea la sesión y manda la cookie
+  document.getElementById('form-login').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const r = await apiPost('/api/auth/login/', Object.fromEntries(new FormData(e.target)));
+    if (r.data.intentos_fallidos !== undefined) pintarIntentos(r.data.intentos_fallidos);
+    if (r.status === 429) bloquear(r.data.segundos_bloqueo || 600);
+    if (!r.ok) return mensaje(errorTexto(r.data), 'danger');
+    // next solo puede ser una ruta de este sitio (si no, redirección abierta)
+    window.location.href = rutaInterna(params.get('next'), r.data.inicio);
+  });
+</script>
+{% endblock %}

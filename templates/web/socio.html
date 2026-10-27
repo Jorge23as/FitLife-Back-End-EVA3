@@ -1,0 +1,142 @@
+{% extends 'base.html' %}
+{% block titulo %}Mi cuenta{% endblock %}
+{% block contenido %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <h1 class="h3 mb-0">Hola, <span id="nombre">{{ user.first_name }}</span> <span class="fs-6" id="dentro"></span></h1>
+  <a href="{% url 'mi-qr' %}" class="btn btn-fl"><i class="bi bi-qr-code"></i> Mostrar mi QR de acceso</a>
+</div>
+<div id="avisos"></div>
+
+<div class="row g-3 mb-4">
+  <div class="col-lg-7">
+    <div class="card tarjeta h-100"><div class="card-body">
+      <div class="kpi-etiqueta mb-2">Mi membresía</div>
+      <div id="membresia" class="text-muted">Cargando...</div>
+    </div></div>
+  </div>
+  <div class="col-lg-5">
+    <div class="card tarjeta h-100"><div class="card-body">
+      <div class="kpi-etiqueta mb-2"><span class="punto-vivo me-1"></span> ¿Hay mucha gente?</div>
+      <div class="d-flex align-items-end gap-2 mb-2"><span id="aforo-actual" class="kpi">-</span>
+        <span id="aforo-texto" class="text-muted mb-1"></span></div>
+      <div id="aforo-barra"></div>
+    </div></div>
+  </div>
+</div>
+
+<div class="card tarjeta mb-4"><div class="card-body">
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <h2 class="h5 mb-0"><i class="bi bi-calendar-check text-fl"></i> Mis próximas clases</h2>
+    <a href="{% url 'horario' %}" class="btn btn-sm btn-outline-fl">Reservar otra</a>
+  </div>
+  <div class="table-responsive"><table class="table tabla-compacta mb-0">
+    <thead><tr><th>Clase</th><th>Cuándo</th><th>Sala</th><th>Estado</th><th></th></tr></thead>
+    <tbody id="reservas"></tbody>
+  </table></div>
+</div></div>
+
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="card tarjeta h-100"><div class="card-body">
+      <h2 class="h5"><i class="bi bi-receipt text-fl"></i> Mis pagos</h2>
+      <div class="table-responsive"><table class="table table-sm tabla-compacta mb-0">
+        <thead><tr><th>Comprobante</th><th>Fecha</th><th>Plan</th><th>Monto</th><th>Estado</th></tr></thead>
+        <tbody id="pagos"></tbody></table></div>
+    </div></div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card tarjeta h-100"><div class="card-body">
+      <h2 class="h5"><i class="bi bi-door-open text-fl"></i> Mis últimos accesos</h2>
+      <div class="table-responsive"><table class="table table-sm tabla-compacta mb-0">
+        <thead><tr><th>Fecha</th><th>Tipo</th><th>Resultado</th></tr></thead>
+        <tbody id="accesos"></tbody></table></div>
+    </div></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}">
+  function pintarMembresia(m, historial) {
+    const zona = document.getElementById('membresia');
+    if (m.estado === 'SIN_MEMBRESIA') {
+      zona.innerHTML = `${badge('SIN_MEMBRESIA')}<p class="mt-2 mb-0">No tienes una membresía vigente. Acércate a recepción para contratar un plan.</p>`;
+      return;
+    }
+    const actual = historial.find((x) => x.id === m.membresia_id);
+    const total = actual ? (new Date(`${actual.fecha_fin}T12:00:00`) - new Date(`${actual.fecha_inicio}T12:00:00`)) / 864e5 + 1 : 0;
+    const congelamiento = actual && actual.congelamientos.find((c) => c.fecha_inicio <= isoDia() && isoDia() < c.fecha_fin);
+    zona.innerHTML = `
+      <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+        <span class="h4 mb-0">${esc(m.plan)}</span> ${badge(m.estado, m.texto)}
+      </div>
+      <div class="row text-center g-2 mb-3">
+        <div class="col"><div class="kpi">${m.dias_restantes}</div><div class="kpi-etiqueta">días restantes</div></div>
+        <div class="col"><div class="fw-semibold">${fecha(m.fecha_inicio)}</div><div class="kpi-etiqueta">inicio</div></div>
+        <div class="col"><div class="fw-semibold">${fecha(m.fecha_fin)}</div><div class="kpi-etiqueta">término</div></div>
+      </div>
+      ${m.estado === 'ACTIVA' && total ? barra(total - m.dias_restantes, total) : ''}
+      ${congelamiento ? `<div class="alert alert-info mt-3 mb-0"><i class="bi bi-snow2"></i> Membresía congelada hasta el ${fecha(congelamiento.ultimo_dia)}. Esos días se sumaron al término.</div>` : ''}
+      ${m.estado === 'POR_COMENZAR' ? `<div class="alert alert-warning mt-3 mb-0">Tu membresía comienza el ${fecha(m.fecha_inicio)}.</div>` : ''}
+      ${m.estado === 'VENCIDA' ? '<div class="alert alert-danger mt-3 mb-0">Tu membresía venció: el QR no te dejará entrar hasta que renueves en recepción.</div>' : ''}
+      ${m.renovada_hasta ? `<div class="small text-success mt-2"><i class="bi bi-arrow-repeat"></i> Ya renovaste: quedas cubierto hasta el ${fecha(m.renovada_hasta)}.</div>` : ''}`;
+  }
+
+  async function cargar() {
+    const r = await api('/api/mi-cuenta/');
+    if (!r.ok) return mensaje(errorTexto(r.data), 'danger');
+    const d = r.data;
+    document.getElementById('dentro').innerHTML = d.dentro_desde
+      ? `<span class="estado estado-verde"><i class="bi bi-geo-alt"></i> Dentro del gimnasio desde las ${hora(d.dentro_desde)}</span>` : '';
+    pintarMembresia(d.membresia, d.membresias);
+
+    document.getElementById('avisos').innerHTML = [
+      ...d.avisos_promovidas.map((a) => `<div class="alert alert-success"><i class="bi bi-arrow-up-circle"></i>
+        ¡Buenas noticias! Pasaste de la lista de espera a <strong>confirmada</strong> en ${esc(a.actividad)} (${fechaHora(a.inicio)}).</div>`),
+      ...Object.entries(Object.groupBy(d.avisos_canceladas, (a) => a.motivo_cancelacion)).map(([motivo, lista]) => {
+        const clases = lista.slice(0, 3).map((a) => `${esc(a.actividad)} (${fechaHora(a.inicio)})`).join(', ');
+        const resto = lista.length > 3 ? ` y ${lista.length - 3} más` : '';
+        return `<div class="alert alert-warning"><i class="bi bi-exclamation-triangle"></i>
+          ${lista.length === 1 ? 'Se canceló tu reserva en' : `Se cancelaron ${lista.length} reservas:`} ${clases}${resto}. Motivo: ${esc(motivo)}.</div>`;
+      }),
+    ].join('');
+
+    document.getElementById('reservas').innerHTML = d.reservas.map((x) => `<tr>
+        <td><span class="fw-semibold">${esc(x.actividad)}</span><div class="small text-muted">${esc(x.instructor)}</div></td>
+        <td>${fechaHora(x.inicio)}</td><td>${esc(x.sala)}</td>
+        <td>${x.estado === 'ESPERA' ? badge('ESPERA', `En espera #${x.posicion_espera}`) : badge(x.estado, x.estado_texto)}</td>
+        <td class="text-end">${['CONFIRMADA', 'ESPERA'].includes(x.estado) && new Date(x.inicio) > new Date()
+          ? `<button class="btn btn-sm btn-outline-danger" data-accion="cancelar" data-id="${x.id}">Cancelar</button>` : ''}</td>
+      </tr>`).join('') || '<tr><td colspan="5" class="text-muted">No tienes clases reservadas.</td></tr>';
+
+    document.getElementById('pagos').innerHTML = d.pagos.map((p) => `<tr>
+        <td>${p.comprobante}</td><td>${fechaHora(p.fecha)}</td><td>${esc(p.plan_nombre)}</td><td>${clp(p.monto)}</td>
+        <td>${badge(p.estado)}</td></tr>`).join('') || '<tr><td colspan="5" class="text-muted">Sin pagos registrados.</td></tr>';
+
+    document.getElementById('accesos').innerHTML = d.accesos.map((a) => `<tr>
+        <td>${fechaHora(a.fecha_hora)}</td><td>${badge(a.tipo)}</td>
+        <td>${badge(a.resultado)} ${a.resultado === 'DENEGADO' ? `<span class="small text-muted">${esc(a.causa_texto)}</span>` : ''}</td>
+      </tr>`).join('') || '<tr><td colspan="3" class="text-muted">Todavía no registras accesos.</td></tr>';
+  }
+
+  async function cargarAforo() {
+    const r = await api('/api/aforo/publico/');
+    if (!r.ok) return;
+    document.getElementById('aforo-actual').textContent = `${r.data.porcentaje}%`;
+    document.getElementById('aforo-texto').textContent = `${r.data.actual} de ${r.data.maximo} personas`;
+    document.getElementById('aforo-barra').innerHTML = barra(r.data.actual, r.data.maximo);
+  }
+
+  registrarAcciones({
+    async cancelar(btn) {
+      if (!await preguntar('Cancelar reserva', '¿Liberar tu cupo? Pasará al siguiente de la lista de espera.', 'Sí, cancelar', true)) return;
+      const r = await apiPost(`/api/reservas/${btn.dataset.id}/cancelar/`);
+      if (!r.ok) return mensaje(errorTexto(r.data), 'danger');
+      mensaje('Reserva cancelada.', 'info');
+      cargar();
+    },
+  });
+  cargar();
+  cadaCierto(cargarAforo, 15000);
+</script>
+{% endblock %}

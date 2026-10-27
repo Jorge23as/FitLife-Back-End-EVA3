@@ -1,0 +1,36 @@
+{% extends "admin/index.html" %}
+{# Portada del admin: tarjetas con los indicadores del día (FitLifeAdminSite.index) y después la lista de modelos #}
+{% block content %}
+{% if indicadores %}
+<div class="fl-tarjetas">
+  {% if indicadores.aforo %}
+  <a class="fl-tarjeta" href="{% url 'aforo' %}">
+    <div class="fl-etiqueta">Aforo ahora · {{ indicadores.aforo.sede }}</div>
+    <div class="fl-numero">{{ indicadores.aforo.actual }} <small>/ {{ indicadores.aforo.maximo }}</small></div>
+    <div class="fl-barra"><div class="fl-barra-relleno fl-{% if indicadores.aforo.porcentaje >= 100 %}rojo{% elif indicadores.aforo.porcentaje >= 80 %}amarillo{% else %}verde{% endif %}" style="width: {{ indicadores.aforo.porcentaje }}%"></div></div>
+  </a>
+  {% endif %}
+  <a class="fl-tarjeta" href="{% url 'admin:membresias_membresia_changelist' %}?estado__exact=ACTIVA">
+    <div class="fl-etiqueta">Membresías activas</div>
+    <div class="fl-numero">{{ indicadores.membresias.activas }}</div>
+    <div class="fl-detalle">{{ indicadores.membresias.por_vencer }} vencen en 7 días</div>
+  </a>
+  <a class="fl-tarjeta" href="{% url 'admin:membresias_membresia_changelist' %}?estado__exact=CONGELADA">
+    <div class="fl-etiqueta">Congeladas / vencidas</div>
+    <div class="fl-numero">{{ indicadores.membresias.congeladas }} <small>/ {{ indicadores.membresias.vencidas }}</small></div>
+    <div class="fl-detalle">pausadas / sin renovar</div>
+  </a>
+  <a class="fl-tarjeta" href="{% url 'admin:membresias_pago_changelist' %}">
+    <div class="fl-etiqueta">Pagos de hoy</div>
+    <div class="fl-numero">${{ indicadores.pagos_hoy.total|floatformat:"0g" }}</div>
+    <div class="fl-detalle">{{ indicadores.pagos_hoy.cantidad }} pago(s)</div>
+  </a>
+  <a class="fl-tarjeta" href="{% url 'admin:clases_clase_changelist' %}?momento=hoy">
+    <div class="fl-etiqueta">Clases de hoy</div>
+    <div class="fl-numero">{{ indicadores.clases_hoy.n_clases }}</div>
+    <div class="fl-detalle">{{ indicadores.clases_hoy.n_reservas }} reservas · {{ indicadores.clases_hoy.n_espera }} en espera</div>
+  </a>
+</div>
+{% endif %}
+{{ block.super }}
+{% endblock %}

@@ -1,0 +1,61 @@
+/* Colores de FitLife para el admin de Django (variables CSS del admin) */
+:root, html[data-theme="light"] {
+  --primary: #fdba74;
+  --secondary: #0f172a;
+  --accent: #fb923c;
+  --primary-fg: #fff;
+  --header-bg: #0f172a;
+  --header-color: #cbd5e1;
+  --header-branding-color: #fff;
+  --breadcrumbs-bg: #1e293b;
+  --link-fg: #c2410c;
+  --link-hover-color: #ea580c;
+  --link-selected-fg: #9a3412;
+  --button-bg: #ea580c;
+  --button-hover-bg: #c2410c;
+  --default-button-bg: #c2410c;
+  --default-button-hover-bg: #9a3412;
+  --selected-row: #fff7ed;
+}
+html[data-theme="dark"] {
+  --primary: #9a3412;
+  --secondary: #0b1220;
+  --header-bg: #0b1220;
+  --breadcrumbs-bg: #111827;
+  --link-fg: #fb923c;
+  --link-hover-color: #fdba74;
+  --button-bg: #c2410c;
+  --button-hover-bg: #ea580c;
+}
+#site-name a { font-weight: 800; letter-spacing: .5px; }
+#site-name .fl-logo { color: #ea580c; }
+#site-name .fl-sub { font-weight: 400; opacity: .7; font-size: .8em; }
+.fl-pie { text-align: center; color: var(--body-quiet-color); font-size: .8rem; padding: 1rem 0; }
+
+/* tarjetas de la portada y del resumen de membresías */
+.fl-tarjetas { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin: 0 0 20px; }
+.fl-tarjeta { display: block; padding: 14px 16px; border-radius: 10px; background: var(--darkened-bg);
+              border: 1px solid var(--hairline-color); color: var(--body-fg) !important; text-decoration: none !important; }
+.fl-tarjeta:hover { border-color: #ea580c; }
+.fl-etiqueta { font-size: .72rem; text-transform: uppercase; letter-spacing: .4px; color: var(--body-quiet-color); }
+.fl-numero { font-size: 1.9rem; font-weight: 800; line-height: 1.2; }
+.fl-numero small { font-size: .9rem; font-weight: 400; color: var(--body-quiet-color); }
+.fl-detalle { font-size: .78rem; color: var(--body-quiet-color); }
+.fl-chicas .fl-numero { font-size: 1.4rem; }
+
+/* etiquetas de estado (format_html en los admin) */
+.fl-badge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: .75rem; font-weight: 600; white-space: nowrap; }
+.fl-badge.fl-verde { background: #dcfce7; color: #166534; }
+.fl-badge.fl-rojo { background: #fee2e2; color: #991b1b; }
+.fl-badge.fl-azul { background: #dbeafe; color: #1e40af; }
+.fl-badge.fl-amarillo { background: #fef3c7; color: #92400e; }
+.fl-badge.fl-gris { background: #e2e8f0; color: #334155; }
+
+/* barras de ocupación */
+.fl-barra { height: 7px; background: #e2e8f0; border-radius: 999px; overflow: hidden; min-width: 90px; margin: 4px 0 2px; }
+.fl-barra-relleno { height: 100%; border-radius: 999px; }
+.fl-barra-relleno.fl-verde { background: #16a34a; }
+.fl-barra-relleno.fl-amarillo { background: #d97706; }
+.fl-barra-relleno.fl-rojo { background: #dc2626; }
+.fl-color { display: inline-block; width: 14px; height: 14px; border-radius: 4px; vertical-align: middle; }
+.fl-qr { width: 170px; height: auto; background: #fff; padding: 6px; border-radius: 8px; border: 1px solid var(--hairline-color); }

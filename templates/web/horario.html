@@ -1,0 +1,119 @@
+{% extends 'base.html' %}
+{% block titulo %}Horario de clases{% endblock %}
+{% block contenido %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-0"><i class="bi bi-calendar-week text-fl"></i> Horario de clases</h1>
+    <p class="text-muted mb-0 small">
+      {% if rol == 'SOCIO' %}Reserva tu cupo. Si la clase está llena quedas en lista de espera y subes solo cuando alguien cancela.
+      {% elif user.is_authenticated %}Vista del horario con la ocupación de cada clase.
+      {% else %}<a href="{% url 'login' %}">Ingresa</a> para reservar.{% endif %}
+    </p>
+  </div>
+  <div class="d-flex gap-2 align-items-center">
+    <select id="filtro-actividad" class="form-select form-select-sm" aria-label="Actividad"><option value="">Todas las actividades</option></select>
+    <div class="btn-group">
+      <button class="btn btn-sm btn-outline-secondary" data-accion="semana" data-delta="-7" title="Semana anterior"><i class="bi bi-chevron-left"></i></button>
+      <button class="btn btn-sm btn-outline-secondary" data-accion="semana" data-delta="0">Esta semana</button>
+      <button class="btn btn-sm btn-outline-secondary" data-accion="semana" data-delta="7" title="Semana siguiente"><i class="bi bi-chevron-right"></i></button>
+    </div>
+  </div>
+</div>
+<p id="rango" class="fw-semibold"></p>
+<div id="semana" class="semana"></div>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}">
+  const ES_SOCIO = '{{ rol|default:"" }}' === 'SOCIO';
+  const CON_SESION = {{ user.is_authenticated|yesno:'true,false' }};
+  let lunes = lunesDe(new Date());
+
+  function lunesDe(d) {
+    const dia = new Date(`${isoDia(d)}T12:00:00`);        // mediodía: sin saltos por horario de verano
+    dia.setDate(dia.getDate() - ((dia.getDay() + 6) % 7)); // lunes = 0
+    return dia;
+  }
+  const sumarDias = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+
+  function botones(c) {
+    const ahora = new Date();
+    if (c.estado === 'CANCELADA') return badge('CANCELADA', 'Clase cancelada');
+    if (new Date(c.fin) <= ahora) return '<span class="small text-muted">Finalizada</span>';
+    if (new Date(c.inicio) <= ahora) return '<span class="small text-success">En curso</span>';
+    if (!CON_SESION) return `<a class="btn btn-sm btn-outline-fl" href="/login/?next=/horario/">Ingresa para reservar</a>`;
+    if (!ES_SOCIO) return '';
+    const mia = c.mi_reserva;
+    if (mia && mia.estado === 'CONFIRMADA') {
+      return `${badge('CONFIRMADA', 'Reservada')} <button class="btn btn-sm btn-link text-danger p-0 ms-1" data-accion="cancelar" data-id="${mia.id}">Cancelar</button>`;
+    }
+    if (mia && mia.estado === 'ESPERA') {
+      return `${badge('ESPERA', `En espera #${mia.posicion_espera}`)} <button class="btn btn-sm btn-link text-danger p-0 ms-1" data-accion="cancelar" data-id="${mia.id}">Salir de la lista</button>`;
+    }
+    if (c.disponibles > 0) return `<button class="btn btn-sm btn-fl" data-accion="reservar" data-id="${c.id}">Reservar</button>`;
+    return `<button class="btn btn-sm btn-outline-warning" data-accion="reservar" data-id="${c.id}">Unirme a la lista de espera</button>`;
+  }
+
+  async function cargar() {
+    const desde = isoDia(lunes);
+    const hasta = isoDia(sumarDias(lunes, 6));
+    const actividad = document.getElementById('filtro-actividad').value;
+    document.getElementById('rango').textContent = `Semana del ${fecha(desde)} al ${fecha(hasta)}`;
+    const r = await api(`/api/clases/?desde=${desde}&hasta=${hasta}&page_size=200${actividad ? `&actividad=${actividad}` : ''}`);
+    if (!r.ok) return mensaje(errorTexto(r.data), 'danger');
+    const porDia = {};
+    r.data.results.forEach((c) => { (porDia[isoDia(new Date(c.inicio))] ||= []).push(c); });
+    const hoy = isoDia();
+    document.getElementById('semana').innerHTML = Array.from({ length: 7 }, (_, i) => {
+      const dia = isoDia(sumarDias(lunes, i));
+      const clases = porDia[dia] || [];
+      return `<div class="dia-col ${dia === hoy ? 'dia-hoy' : ''}">
+        <div class="dia-titulo mb-2">${diaLargo(`${dia}T12:00:00`)}${dia === hoy ? ' · hoy' : ''}</div>
+        ${clases.map((c) => `
+          <div class="card tarjeta clase-card mb-2 ${new Date(c.fin) <= new Date() ? 'pasada' : ''}" style="--color-actividad:${esc(c.color)}">
+            <div class="card-body py-2">
+              <div class="d-flex justify-content-between"><span class="hora">${hora(c.inicio)}</span>
+                <span class="small text-muted">${esc(c.intensidad)}</span></div>
+              <div class="fw-semibold">${esc(c.actividad_nombre)}</div>
+              <div class="small text-muted">${esc(c.instructor_nombre)} · ${esc(c.sala_nombre)}</div>
+              <div class="my-2">${barra(c.ocupados, c.cupo)}
+                <div class="small d-flex flex-wrap justify-content-between column-gap-2 mt-1"><span>${c.ocupados}/${c.cupo} cupos</span>
+                  <span>${c.en_espera ? `${c.en_espera} en espera` : ''}</span></div></div>
+              <div>${botones(c)}</div>
+            </div>
+          </div>`).join('') || '<div class="small text-muted">Sin clases</div>'}
+      </div>`;
+    }).join('');
+  }
+
+  registrarAcciones({
+    semana(btn) {
+      const delta = Number(btn.dataset.delta);
+      lunes = delta ? sumarDias(lunes, delta) : lunesDe(new Date());
+      cargar();
+    },
+    async reservar(btn) {
+      btn.disabled = true;
+      const r = await apiPost('/api/reservas/', { clase: Number(btn.dataset.id) });
+      if (!r.ok) { btn.disabled = false; return mensaje(errorTexto(r.data), 'danger'); }
+      if (r.data.estado === 'CONFIRMADA') mensaje(`¡Listo! Tienes tu cupo en ${r.data.actividad} (${fechaHora(r.data.inicio)}).`);
+      else mensaje(`La clase está llena: quedaste en lista de espera (lugar ${r.data.posicion_espera}). Si alguien cancela, subes solo.`, 'warning');
+      cargar();
+    },
+    async cancelar(btn) {
+      if (!await preguntar('Cancelar reserva', '¿Seguro que quieres liberar tu cupo? Pasará al siguiente de la lista de espera.', 'Sí, cancelar', true)) return;
+      const r = await apiPost(`/api/reservas/${btn.dataset.id}/cancelar/`);
+      if (!r.ok) return mensaje(errorTexto(r.data), 'danger');
+      mensaje('Reserva cancelada.', 'info');
+      cargar();
+    },
+  });
+
+  document.getElementById('filtro-actividad').addEventListener('change', cargar);
+  api('/api/actividades/?activa=true').then((r) => {
+    if (r.ok) document.getElementById('filtro-actividad').insertAdjacentHTML('beforeend',
+      r.data.map((a) => `<option value="${a.id}">${esc(a.nombre)}</option>`).join(''));
+  });
+  cargar();
+</script>
+{% endblock %}

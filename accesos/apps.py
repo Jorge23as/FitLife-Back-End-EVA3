@@ -1,0 +1,6 @@
+from django.apps import AppConfig
+
+
+class AccesosConfig(AppConfig):
+    name = 'accesos'
+    verbose_name = 'Control de acceso y aforo'

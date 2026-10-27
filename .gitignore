@@ -1,0 +1,17 @@
+# Entorno y secretos
+venv/
+.env
+# Python
+__pycache__/
+*.pyc
+# Django
+staticfiles/
+*.sqlite3
+# Editor / SO
+.vscode/
+.idea/
+.DS_Store
+# Servidor (EC2)
+*.sock
+# Notas locales del asistente de IA (el registro para la entrega es prompts_ia.md)
+CLAUDE.md

@@ -1,0 +1,160 @@
+{% extends 'base.html' %}
+{% block titulo %}Clases y reservas{% endblock %}
+{% block contenido %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-0"><i class="bi bi-calendar2-check text-fl"></i> Clases y reservas</h1>
+    <p class="text-muted small mb-0">Al subir el cupo o cancelar una reserva, la lista de espera avanza sola (por orden de llegada).</p>
+  </div>
+  {% if es_admin_fitlife %}<button class="btn btn-fl" data-accion="nueva"><i class="bi bi-plus-circle"></i> Nueva clase</button>{% endif %}
+</div>
+<div class="card tarjeta mb-3"><div class="card-body py-2">
+  <form id="filtros" class="row g-2">
+    <div class="col-6 col-md-3"><input name="desde" type="date" class="form-control" title="Desde"></div>
+    <div class="col-6 col-md-3"><input name="hasta" type="date" class="form-control" title="Hasta"></div>
+    <div class="col-md-3"><select name="actividad" class="form-select" id="f-actividad"><option value="">Todas las actividades</option></select></div>
+    <div class="col-md-3"><select name="estado" class="form-select"><option value="">Todos los estados</option>
+      <option value="PROGRAMADA">Programadas</option><option value="CANCELADA">Canceladas</option></select></div>
+  </form>
+</div></div>
+<div class="row g-3">
+  <div class="col-xl-7">
+    <div class="card tarjeta"><div class="table-responsive">
+      <table class="table table-hover tabla-compacta mb-0">
+        <thead class="table-light"><tr><th>Cuándo</th><th>Clase</th><th>Ocupación</th><th>Estado</th><th class="text-end"></th></tr></thead>
+        <tbody id="tabla"></tbody>
+      </table>
+    </div></div>
+  </div>
+  <div class="col-xl-5">
+    <div class="card tarjeta"><div class="card-body" id="detalle"><div class="text-muted">Elige "Lista" en una clase para ver confirmados y lista de espera.</div></div></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}">
+  const ES_ADMIN = {{ es_admin_fitlife|yesno:'true,false' }};
+  const form = document.getElementById('filtros');
+  let clases = {};
+  let catalogos = { actividades: [], instructores: [], salas: [], socios: [] };
+  let claseAbierta = null;
+
+  form.elements.desde.value = isoDia();
+  const enSiete = new Date(); enSiete.setDate(enSiete.getDate() + 7);
+  form.elements.hasta.value = isoDia(enSiete);
+
+  async function cargar() {
+    const filtros = new URLSearchParams([...new FormData(form)].filter(([, v]) => v));
+    const r = await api(`/api/clases/?${filtros}&page_size=200`);
+    if (!r.ok) return mensaje(errorTexto(r.data), 'danger');
+    clases = Object.fromEntries(r.data.results.map((c) => [c.id, c]));
+    const ahora = new Date();
+    document.getElementById('tabla').innerHTML = r.data.results.map((c) => {
+      const futura = new Date(c.inicio) > ahora && c.estado === 'PROGRAMADA';
+      return `<tr class="${claseAbierta === c.id ? 'table-warning' : ''}">
+        <td class="small text-nowrap">${diaLargo(c.inicio)}<br><strong>${hora(c.inicio)} - ${hora(c.fin)}</strong></td>
+        <td><span class="fw-semibold">${esc(c.actividad_nombre)}</span><div class="small text-muted">${esc(c.instructor_nombre)} · ${esc(c.sala_nombre)}</div></td>
+        <td style="min-width: 9rem">${barra(c.ocupados, c.cupo)}<div class="small">${c.ocupados}/${c.cupo}${c.en_espera ? ` · ${c.en_espera} en espera` : ''}</div></td>
+        <td>${badge(c.estado, c.estado_texto)}</td>
+        <td class="text-end text-nowrap">
+          <button class="btn btn-sm btn-outline-secondary" data-accion="lista" data-id="${c.id}">Lista</button>
+          ${ES_ADMIN && futura ? `<button class="btn btn-sm btn-outline-secondary" data-accion="editar" data-id="${c.id}" title="Editar"><i class="bi bi-pencil"></i></button>
+            <button class="btn btn-sm btn-outline-danger" data-accion="cancelarClase" data-id="${c.id}" title="Cancelar clase"><i class="bi bi-x-circle"></i></button>` : ''}
+        </td></tr>`;
+    }).join('') || '<tr><td colspan="5" class="text-muted p-3">No hay clases en ese rango.</td></tr>';
+  }
+
+  async function verLista(id) {
+    claseAbierta = id;
+    const c = clases[id];
+    const r = await api(`/api/clases/${id}/asistentes/`);
+    if (!r.ok) return mensaje(errorTexto(r.data), 'danger');
+    const futura = new Date(c.inicio) > new Date() && c.estado === 'PROGRAMADA';
+    const fila = (x) => `<tr><td>${esc(x.socio_nombre)}</td>
+      <td>${x.estado === 'ESPERA' ? badge('ESPERA', `En espera #${x.posicion_espera}`) : badge(x.estado, x.estado_texto)}</td>
+      <td class="text-end">${futura ? `<button class="btn btn-sm btn-link text-danger p-0" data-accion="cancelarReserva" data-id="${x.id}">Cancelar</button>` : ''}</td></tr>`;
+    const confirmados = r.data.filter((x) => x.estado !== 'ESPERA');
+    const espera = r.data.filter((x) => x.estado === 'ESPERA');
+    document.getElementById('detalle').innerHTML = `
+      <h2 class="h5 mb-0">${esc(c.actividad_nombre)}</h2>
+      <div class="small text-muted mb-2">${diaLargo(c.inicio)} ${hora(c.inicio)} · ${esc(c.sala_nombre)} · ${esc(c.instructor_nombre)}</div>
+      ${barra(c.ocupados, c.cupo)}<div class="small mb-3">${c.ocupados} de ${c.cupo} cupos</div>
+      ${futura ? `<div class="input-group input-group-sm mb-3">
+        <select id="reservar-socio" class="form-select"><option value="">Reservar a nombre de un socio...</option>
+          ${catalogos.socios.map((s) => `<option value="${s.id}">${esc(s.nombre)} · ${esc(s.rut)}</option>`).join('')}</select>
+        <button class="btn btn-fl" data-accion="reservarSocio">Reservar</button></div>` : ''}
+      <h3 class="h6">Confirmados (${confirmados.length})</h3>
+      <table class="table table-sm tabla-compacta"><tbody>${confirmados.map(fila).join('') || '<tr><td class="text-muted">Sin reservas.</td></tr>'}</tbody></table>
+      <h3 class="h6">Lista de espera (${espera.length})</h3>
+      <table class="table table-sm tabla-compacta mb-0"><tbody>${espera.map(fila).join('') || '<tr><td class="text-muted">Vacía.</td></tr>'}</tbody></table>`;
+    cargar();
+  }
+
+  function camposClase() {
+    return [
+      { nombre: 'actividad', etiqueta: 'Actividad', tipo: 'select', requerido: true, ancho: 'col-md-6',
+        opciones: catalogos.actividades.map((a) => ({ valor: a.id, texto: `${a.nombre} (${a.duracion_minutos} min)` })) },
+      { nombre: 'instructor', etiqueta: 'Instructor', tipo: 'select', requerido: true, ancho: 'col-md-6',
+        opciones: catalogos.instructores.map((i) => ({ valor: i.id, texto: `${i.nombre} · ${i.especialidad}` })) },
+      { nombre: 'sala', etiqueta: 'Sala', tipo: 'select', requerido: true, ancho: 'col-md-6',
+        opciones: catalogos.salas.map((s) => ({ valor: s.id, texto: `${s.nombre} (capacidad ${s.capacidad})` })) },
+      { nombre: 'cupo', etiqueta: 'Cupo', tipo: 'number', min: 1, requerido: true, ancho: 'col-md-6', ayuda: 'No puede superar la capacidad de la sala.' },
+      { nombre: 'inicio', etiqueta: 'Inicio', tipo: 'datetime-local', requerido: true, ancho: 'col-md-6', ayuda: 'El término se calcula con la duración de la actividad.' },
+    ];
+  }
+  // el formulario manda "2026-10-27T19:00" sin zona horaria: DRF la interpreta en la hora de Chile (TIME_ZONE)
+  const aLocal = (iso) => new Date(iso).toLocaleString('sv-SE', { timeZone: ZONA }).replace(' ', 'T').slice(0, 16);
+  const numeros = (d) => ({ ...d, actividad: Number(d.actividad), instructor: Number(d.instructor), sala: Number(d.sala) });
+
+  registrarAcciones({
+    lista: (btn) => verLista(Number(btn.dataset.id)),
+    async nueva() {
+      const c = await formulario({ titulo: 'Nueva clase', campos: camposClase(), valores: { cupo: 15 },
+                                   enviar: (d) => apiPost('/api/clases/', numeros(d)) });
+      if (c) { mensaje(`Clase de ${c.actividad_nombre} creada para el ${fechaHora(c.inicio)}.`); cargar(); }
+    },
+    async editar(btn) {
+      const clase = clases[btn.dataset.id];
+      const c = await formulario({ titulo: `Editar ${clase.actividad_nombre}`, campos: camposClase(),
+                                   valores: { ...clase, inicio: aLocal(clase.inicio) },
+                                   enviar: (d) => apiPatch(`/api/clases/${clase.id}/`, numeros(d)) });
+      if (c) { mensaje('Clase actualizada. Si subió el cupo, entró gente de la lista de espera.'); claseAbierta === c.id ? verLista(c.id) : cargar(); }
+    },
+    async cancelarClase(btn) {
+      const c = clases[btn.dataset.id];
+      if (!await preguntar('Cancelar clase', `¿Cancelar ${c.actividad_nombre} del ${fechaHora(c.inicio)}? Se cancelarán sus ${c.ocupados + c.en_espera} reservas.`, 'Cancelar clase', true)) return;
+      const r = await apiPost(`/api/clases/${c.id}/cancelar/`);
+      if (!r.ok) return mensaje(errorTexto(r.data), 'danger');
+      mensaje(`Clase cancelada (${r.data.reservas_canceladas} reservas canceladas).`, 'info');
+      cargar();
+    },
+    async cancelarReserva(btn) {
+      if (!await preguntar('Cancelar reserva', 'Se libera el cupo y sube el primero de la lista de espera.', 'Cancelar reserva', true)) return;
+      const r = await apiPost(`/api/reservas/${btn.dataset.id}/cancelar/`);
+      if (!r.ok) return mensaje(errorTexto(r.data), 'danger');
+      mensaje(r.data.promovidas.length ? `Reserva cancelada. Subió de la lista de espera: ${r.data.promovidas.join(', ')}.` : 'Reserva cancelada.', 'info');
+      await cargar();
+      verLista(claseAbierta);
+    },
+    async reservarSocio() {
+      const socio = Number(document.getElementById('reservar-socio').value);
+      if (!socio) return;
+      const r = await apiPost('/api/reservas/', { clase: claseAbierta, socio });
+      if (!r.ok) return mensaje(errorTexto(r.data), 'danger');
+      mensaje(r.data.estado === 'CONFIRMADA' ? `${r.data.socio_nombre}: reserva confirmada.` : `${r.data.socio_nombre}: clase llena, quedó en lista de espera (lugar ${r.data.posicion_espera}).`,
+              r.data.estado === 'CONFIRMADA' ? 'success' : 'warning');
+      await cargar();
+      verLista(claseAbierta);
+    },
+  });
+
+  form.addEventListener('change', cargar);
+  Promise.all([api('/api/actividades/?activa=true'), api('/api/instructores/'), api('/api/salas/'),
+               api('/api/socios/?page_size=200&usuario__is_active=true&ordering=usuario__last_name')]).then(([a, i, s, so]) => {
+    catalogos = { actividades: a.data, instructores: i.data, salas: s.data, socios: so.ok ? so.data.results : [] };
+    document.getElementById('f-actividad').insertAdjacentHTML('beforeend', a.data.map((x) => `<option value="${x.id}">${esc(x.nombre)}</option>`).join(''));
+  });
+  cargar();
+</script>
+{% endblock %}
