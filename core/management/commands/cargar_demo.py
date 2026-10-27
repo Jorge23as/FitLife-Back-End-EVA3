@@ -118,7 +118,8 @@ NOMBRES_EXTRA = ['Ignacia', 'Sebastián', 'Constanza', 'Felipe', 'Javiera', 'Nic
 APELLIDOS_EXTRA = ['Araya', 'Bustamante', 'Cifuentes', 'Donoso', 'Escobar', 'Farías', 'Garrido', 'Hidalgo', 'Jara',
                    'Krause', 'León', 'Maldonado', 'Olivares', 'Poblete', 'Quiroz', 'Rebolledo', 'Saavedra', 'Toledo',
                    'Uribe', 'Valdés', 'Yáñez', 'Zamorano', 'Becerra', 'Ossandón']
-PERFILES_EXTRA = ['full'] * 10 + ['trimestral'] * 5 + ['anual'] * 4 + ['estudiante'] * 2 + ['basico'] * 2 + ['vencida']
+PERFILES_EXTRA = (['full'] * 26 + ['trimestral'] * 14 + ['anual'] * 10 + ['estudiante'] * 6 + ['basico'] * 5
+                  + ['vencida'] * 3)
 
 
 def sin_tildes(texto):
@@ -205,11 +206,15 @@ class Command(BaseCommand):
             u.instructor.save()
             self.instructores[usuario] = u.instructor
 
-        extras = []
+        extras, usados = [], {s[2] for s in SOCIOS}
         for i, perfil in enumerate(PERFILES_EXTRA):
-            nombre, apellido = NOMBRES_EXTRA[i], APELLIDOS_EXTRA[(i * 7) % len(APELLIDOS_EXTRA)]
-            segundo = APELLIDOS_EXTRA[(i * 11 + 5) % len(APELLIDOS_EXTRA)]
-            extras.append((nombre, f'{apellido} {segundo}', f'{sin_tildes(nombre)}.{sin_tildes(apellido)}', perfil))
+            n = len(APELLIDOS_EXTRA)
+            nombre, apellido = NOMBRES_EXTRA[i % len(NOMBRES_EXTRA)], APELLIDOS_EXTRA[(i * 7 + i // n) % n]
+            segundo = APELLIDOS_EXTRA[(i * 11 + 5) % n]
+            usuario = f'{sin_tildes(nombre)}.{sin_tildes(apellido)}'
+            usuario = usuario if usuario not in usados else f'{usuario}{i}'
+            usados.add(usuario)
+            extras.append((nombre, f'{apellido} {segundo}', usuario, perfil))
 
         self.socios = {}
         for i, (nombres, apellidos, usuario, perfil) in enumerate(SOCIOS + extras):
@@ -323,31 +328,33 @@ class Command(BaseCommand):
         for clase in futuras:
             clases_services.reservar(sofia, clase)
 
-        # clases futuras del horario, con las reglas de verdad (reservar()). Cada socio reserva
-        # como mucho una clase por día y entre 2 y 5 en total, como alguien que va al gimnasio.
-        # Primero se llena la de Pilates de mañana (queda con lista de espera); el resto, entre 30% y 90%.
-        tope = {s: random.randint(2, 5) for s in candidatos}
-        tope[maria] = 3
-        reservas = {s: Reserva.objects.filter(socio=s, clase__inicio__gt=ahora).exclude(estado='CANCELADA').count()
-                    for s in candidatos}
-        dias = {s: set() for s in candidatos}
+        # Reservas futuras, con las reglas de verdad (reservar()). Primero se llena la Pilates de mañana
+        # (queda con lista de espera). Después cada socio elige de 2 a 5 clases de los próximos 4 días
+        # (una por día como máximo), con más interés en las de la tarde, como en un gimnasio de verdad.
         manana = self.hoy + timedelta(days=1)
-        futuras = list(Clase.objects.filter(inicio__gt=ahora).exclude(pk=self.hiit_llena.pk).order_by('inicio'))
-        futuras.sort(key=lambda c: not (c.fecha == manana and c.actividad.nombre == 'Pilates'))
-        for clase in futuras:
-            llena = clase.fecha == manana and clase.actividad.nombre == 'Pilates'
-            meta = clase.cupo + 3 if llena else int(clase.cupo * random.uniform(0.3, 0.9))
-            for socio in random.sample(candidatos, k=len(candidatos)):
-                if clase.reservas.count() >= meta:
-                    break
-                if not llena and (reservas[socio] >= tope[socio] or clase.fecha in dias[socio]):
+        proximas = list(Clase.objects.filter(inicio__gt=ahora, inicio__lt=ahora + timedelta(days=4))
+                        .exclude(pk=self.hiit_llena.pk).select_related('actividad'))
+        llena = next((c for c in proximas if c.fecha == manana and c.actividad.nombre == 'Pilates'), None)
+        for socio in random.sample(candidatos, k=len(candidatos)) if llena else []:
+            if llena.reservas.count() >= llena.cupo + 3:
+                break
+            try:
+                clases_services.reservar(socio, llena)
+            except ErrorDeNegocio:
+                pass
+        pesos = [3 if timezone.localtime(c.inicio).hour >= 18 else 2 if timezone.localtime(c.inicio).hour < 9 else 1
+                 for c in proximas]
+        for socio in candidatos:
+            dias = {r.clase.fecha for r in Reserva.objects.filter(socio=socio, clase__inicio__gt=ahora)
+                    .exclude(estado='CANCELADA').select_related('clase')}
+            for clase in random.choices(proximas, weights=pesos, k=random.randint(2, 5)):
+                if clase.fecha in dias or clase == llena:
                     continue
                 try:
                     clases_services.reservar(socio, clase)
+                    dias.add(clase.fecha)
                 except ErrorDeNegocio:
-                    continue  # choque de horario, tope del plan, etc.: se salta, como pasaría en la app
-                reservas[socio] += 1
-                dias[socio].add(clase.fecha)
+                    pass  # clase llena con espera larga, choque de horario, tope del plan...: se salta
 
     # --- accesos de hoy --------------------------------------------------------
     def registro(self, socio, tipo, momento, causa='OK', motivo='', resultado='PERMITIDO', visita=None, metodo='CAMARA'):
@@ -375,7 +382,7 @@ class Command(BaseCommand):
 
         # hoy, más temprano: entraron y ya se fueron
         desde = max(apertura, ahora - timedelta(hours=8))
-        for socio in candidatos[17:]:
+        for socio in candidatos[17:47]:
             if ahora - desde < timedelta(minutes=100):
                 break
             entrada = desde + timedelta(minutes=random.randint(0, int((ahora - desde).total_seconds() // 60) - 100))

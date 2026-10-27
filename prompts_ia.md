@@ -14,7 +14,7 @@ codificación, generar estructuras HTML/CSS o scripts de despliegue, dejando reg
 | 2 | 26-10-2026 | Decisión | ¿Puedo presentar el software de la EVA-2? | Análisis: la rúbrica evalúa las 4 funcionalidades de FitLife; recomendación de hacer FitLife reutilizando la base y la instancia | Decisión mía: hacer FitLife |
 | 3 | 26-10-2026 | Apoyo | Transcribir los audios de la clase | Transcripción local con Whisper; datos de la entrega (lunes 2, 70/30, prueba de 20 preguntas) | Escuchado en los audios |
 | 4 | 26/27-10-2026 | Construcción | Construir FitLife | Modelo de datos, reglas de negocio, API, admin, páginas, pruebas y scripts de despliegue | 84 pruebas automáticas y recorrido en el navegador |
-| 5 | 27-10-2026 | Revisión | (dentro de la construcción) | Las pruebas y el recorrido encontraron 4 errores, que se corrigieron | Pruebas en verde después de cada corrección |
+| 5 | 27-10-2026 | Revisión | (dentro de la construcción) | Las pruebas y el recorrido encontraron 5 errores, que se corrigieron | Pruebas en verde después de cada corrección |
 
 ## 1. Análisis de la pauta
 
@@ -79,7 +79,7 @@ prueba de 20 preguntas generadas desde la receta y ponderación acordada 70/30.
 ## 5. Errores que encontró la verificación
 
 La IA corrió las pruebas y recorrió todas las páginas con un navegador automatizado (Chromium) con cada rol.
-Eso encontró 4 errores, que se corrigieron:
+Eso encontró 5 errores, que se corrigieron:
 
 1. **Portada del admin con error 500:** en un `aggregate()`, el alias `reservas` tapaba la relación `reservas`
    que usaba el filtro. Se renombró a `n_reservas`.
@@ -87,8 +87,11 @@ Eso encontró 4 errores, que se corrigieron:
    usan las reglas. Se renombró a `n_ocupados` (lo detectó una prueba automática).
 3. **Simulación de QR en recepción:** si se elegía un socio y se apretaba "Simular" antes de que cargara su QR,
    se validaba el QR del socio anterior. Ahora el botón queda desactivado mientras carga.
-4. **Datos de prueba poco realistas:** un socio quedaba con unas 30 clases reservadas en la semana. Se limitó a
-   una clase por día y de 2 a 5 por socio.
+4. **Datos de prueba poco realistas:** un socio quedaba con unas 30 clases reservadas en la semana. Ahora cada
+   socio elige de 2 a 5 clases de los próximos 4 días, una por día como máximo.
+5. **Horario desordenado:** las clases salían agrupadas por actividad y no por hora. Al contar las reservas con
+   `Count()` la consulta usa `GROUP BY`, y en ese caso Django no aplica el `ordering` del modelo. Se agregó
+   `order_by('inicio')` explícito.
 
 ## 6. Pendiente de registrar
 

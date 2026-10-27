@@ -83,7 +83,9 @@ class ClaseViewSet(viewsets.ModelViewSet):
         # n_ocupados y no "ocupados": ese nombre taparía el método Clase.ocupados() que usan los services
         consulta = (Clase.objects.select_related('actividad', 'sala', 'instructor__usuario')
                     .annotate(n_ocupados=Count('reservas', filter=Q(reservas__estado__in=Reserva.OCUPAN_CUPO)),
-                              n_espera=Count('reservas', filter=Q(reservas__estado=Reserva.Estado.ESPERA))))
+                              n_espera=Count('reservas', filter=Q(reservas__estado=Reserva.Estado.ESPERA)))
+                    # con GROUP BY (los Count) Django no aplica el ordering del modelo: hay que pedirlo
+                    .order_by('inicio'))
         usuario = self.request.user
         if rol_de(usuario) == Rol.SOCIO:
             mia = (Reserva.objects.filter(clase=OuterRef('pk'), socio__usuario=usuario)
