@@ -12,6 +12,8 @@ from django.contrib.admin.helpers import ACTION_CHECKBOX_NAME
 from django.core.exceptions import ValidationError
 from django.db.models import Count, Q
 from django.template.response import TemplateResponse
+from django.urls import reverse
+from django.utils.html import format_html
 from django.utils import timezone
 
 from core.admin_utils import badge, pesos
@@ -224,7 +226,7 @@ class PagoForm(forms.ModelForm):
 class PagoAdmin(admin.ModelAdmin):
     form = PagoForm
     list_display = ['comprobante', 'fecha', 'socio', 'plan', 'monto_clp', 'metodo', 'estado_etiqueta',
-                    'registrado_por']
+                    'registrado_por', 'ver_comprobante']
     list_filter = ['estado', 'metodo', 'plan', 'fecha']
     search_fields = ['socio__usuario__first_name', 'socio__usuario__last_name', 'socio__usuario__rut']
     autocomplete_fields = ['socio']
@@ -259,6 +261,11 @@ class PagoAdmin(admin.ModelAdmin):
     @admin.display(description='comprobante', ordering='id')
     def comprobante(self, obj):
         return obj.comprobante
+
+    @admin.display(description='documento')
+    def ver_comprobante(self, obj):
+        # el comprobante imprimible (la misma página que usa recepción)
+        return format_html('<a href="{}" target="_blank">Ver / imprimir</a>', reverse('comprobante', args=[obj.pk]))
 
     @admin.display(description='monto', ordering='monto')
     def monto_clp(self, obj):

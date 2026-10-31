@@ -20,7 +20,7 @@ from rest_framework import mixins, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from cuentas.permisos import EsAdmin, EsStaff, LecturaPublicaEscrituraAdmin, rol_de
+from cuentas.permisos import EsAdmin, EsSocio, EsStaff, LecturaPublicaEscrituraAdmin, rol_de
 from cuentas.models import Usuario
 
 from . import services
@@ -111,7 +111,15 @@ class PagoViewSet(mixins.CreateModelMixin, mixins.RetrieveModelMixin, mixins.Upd
     def get_permissions(self):
         if self.action in ('update', 'partial_update', 'anular'):
             return [EsAdmin()]
+        if self.action == 'retrieve':
+            return [(EsSocio | EsStaff)()]  # el socio puede abrir el comprobante de SUS pagos
         return [EsStaff()]
+
+    def get_queryset(self):
+        # un socio solo encuentra sus propios pagos: el de otro responde 404
+        if rol_de(self.request.user) == Usuario.Rol.SOCIO:
+            return self.queryset.filter(socio__usuario=self.request.user)
+        return self.queryset
 
     @extend_schema(request=AnularPagoSerializer, responses=PagoSerializer)
     @action(detail=True, methods=['post'])

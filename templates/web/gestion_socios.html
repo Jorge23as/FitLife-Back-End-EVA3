@@ -117,6 +117,9 @@
       if (pago) {
         mensaje(`Pago ${pago.comprobante} registrado (${clp(pago.monto)}). Membresía ${pago.plan_nombre} del ${fecha(pago.membresia_inicio)} al ${fecha(pago.membresia_fin)}.`);
         cargar();
+        if (await preguntar(`Pago ${pago.comprobante} registrado`, `¿Quieres ver e imprimir el comprobante de ${s.nombre}?`, 'Ver comprobante')) {
+          window.location.href = `/comprobantes/${pago.id}/`;
+        }
       }
     },
     async congelar(btn) {

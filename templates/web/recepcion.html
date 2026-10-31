@@ -49,7 +49,8 @@
           <canvas id="lienzo" class="d-none"></canvas>
           <div class="d-flex gap-2">
             <button class="btn btn-fl flex-fill" data-accion="encenderCamara" id="btn-camara"><i class="bi bi-camera-video"></i> Encender cámara</button>
-            <button class="btn btn-outline-secondary" data-accion="apagarCamara"><i class="bi bi-stop-circle"></i></button>
+            <button class="btn btn-outline-secondary" data-accion="voltearCamara" title="Voltear imagen (espejo)"><i class="bi bi-symmetry-vertical"></i></button>
+            <button class="btn btn-outline-secondary" data-accion="apagarCamara" title="Apagar cámara"><i class="bi bi-stop-circle"></i></button>
           </div>
           <div id="camara-estado" class="small text-muted mt-2">La cámara solo funciona en https (en el dominio del sitio) o en localhost.</div>
         </div>
@@ -93,6 +94,7 @@
 <script nonce="{{ csp_nonce }}">
   let socios = [];
   let qrSimulado = null;   // { codigo, generado }
+  let socioActual = '';    // id del socio cuyo QR se está mostrando (no se pierde al buscar)
 
   // pitido corto: agudo si pasa, grave si se rechaza (Web Audio, sin archivos)
   function pitido(ok) {
@@ -165,7 +167,7 @@
     const filtro = document.getElementById('buscar-socio').value.trim().toLowerCase();
     document.getElementById('socio').innerHTML = socios
       .filter((s) => !filtro || `${s.nombre} ${s.rut}`.toLowerCase().includes(filtro))
-      .map((s) => `<option value="${s.id}">${esc(s.nombre)} · ${esc(s.rut)} · ${esc(s.membresia.texto)}</option>`).join('');
+      .map((s) => `<option value="${s.id}"${String(s.id) === socioActual ? ' selected' : ''}>${esc(s.nombre)} · ${esc(s.rut)} · ${esc(s.membresia.texto)}</option>`).join('');
   }
 
   async function cargarSocios() {
@@ -177,8 +179,10 @@
 
   const BOTONES_SIMULACION = ['btn-simular', 'btn-nuevo', 'btn-alterado'];
   async function generarQrSimulado() {
-    const id = document.getElementById('socio').value;
-    if (!id) return;
+    // al buscar se rearma la lista y puede quedar sin selección: se usa el socio que ya se estaba mostrando
+    const id = document.getElementById('socio').value || socioActual;
+    if (!id) return mensaje('Elige un socio de la lista.', 'warning');
+    socioActual = id;
     // mientras llega el QR nuevo no se puede simular (si no, se leería el QR del socio anterior)
     qrSimulado = null;
     BOTONES_SIMULACION.forEach((b) => { document.getElementById(b).disabled = true; });
@@ -256,6 +260,10 @@
       }
       const video = document.getElementById('video');
       video.srcObject = stream;
+      // la cámara del notebook (o la frontal del celular) se ve como espejo, igual que en una videollamada;
+      // la trasera del celular se ve normal. Solo cambia cómo se ve: el QR se lee del cuadro original.
+      const { facingMode } = stream.getVideoTracks()[0].getSettings();
+      video.classList.toggle('espejo', facingMode !== 'environment');
       await video.play();
       if ('BarcodeDetector' in window) {
         try {
@@ -266,6 +274,7 @@
       escaneando = true;
       leerCuadro();
     },
+    voltearCamara() { document.getElementById('video').classList.toggle('espejo'); },
     apagarCamara() {
       escaneando = false;
       if (stream) stream.getTracks().forEach((t) => t.stop());

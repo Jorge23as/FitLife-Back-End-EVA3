@@ -2,8 +2,16 @@
 {% block titulo %}Ingresar{% endblock %}
 {% block contenido %}
 <div class="row justify-content-center">
-  <div class="col-md-6 col-lg-5">
-    <div class="card tarjeta"><div class="card-body p-4">
+  <div class="col-lg-10 col-xl-9">
+    <div class="card tarjeta overflow-hidden"><div class="row g-0">
+    <!-- foto (se oculta en celulares para que el formulario quede arriba) -->
+    <div class="col-md-6 d-none d-md-block">
+      <div class="login-foto d-flex flex-column justify-content-end p-4">
+        <h2>Entrena sin filas<br>ni sobrecupos</h2>
+        <p class="mb-0 text-white-50">Tu QR, tus reservas y el aforo del gimnasio en un solo lugar.</p>
+      </div>
+    </div>
+    <div class="col-md-6"><div class="card-body p-4 p-lg-5">
       <div class="text-center mb-3">
         <i class="bi bi-lightning-charge-fill text-fl display-5"></i>
         <h1 class="h4 mt-2 mb-0">Ingresar a FitLife</h1>
@@ -25,6 +33,7 @@
       <p class="small text-muted text-center mt-3 mb-0">
         <i class="bi bi-shield-lock"></i> Sesión segura: se cierra sola tras 1 hora sin actividad.
       </p>
+    </div></div>
     </div></div>
   </div>
 </div>

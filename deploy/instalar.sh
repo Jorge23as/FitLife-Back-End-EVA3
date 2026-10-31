@@ -18,7 +18,7 @@ cd "$APP"
 
 echo "==> 1. Paquetes (ya deberían estar por la Farmacia)"
 sudo apt-get update -qq
-sudo apt-get install -y -qq python3-venv python3-pip nginx postgresql git curl certbot python3-certbot-nginx >/dev/null
+sudo apt-get install -y -qq python3-venv python3-pip nginx postgresql libpq5 git curl certbot python3-certbot-nginx >/dev/null
 
 echo "==> 2. DuckDNS: $DOMINIO tiene que apuntar a esta instancia"
 DUCK=~/duckdns/duck.sh

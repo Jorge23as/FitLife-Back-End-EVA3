@@ -11,6 +11,7 @@ API revisa los permisos de nuevo en cada petición.
 """
 from functools import wraps
 
+from django.conf import settings
 from django.contrib.auth.views import redirect_to_login
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
@@ -67,6 +68,13 @@ gestion_membresias = pagina('web/gestion_membresias.html', *STAFF)
 gestion_planes = pagina('web/gestion_planes.html', *STAFF)
 gestion_clases = pagina('web/gestion_clases.html', *STAFF)
 api_docs = pagina('web/api_docs.html', *STAFF)
+
+
+# comprobante de un pago: lo abre el personal o el socio dueño del pago
+# (si un socio pone el id de otro pago, la API responde 404 y la página no muestra nada)
+@rol_requerido(*STAFF, Rol.SOCIO)
+def comprobante(request, pk):
+    return render(request, 'web/comprobante.html', {'pago_id': pk, 'empresa': settings.EMPRESA})
 
 
 @ensure_csrf_cookie

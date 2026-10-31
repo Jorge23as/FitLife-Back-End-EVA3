@@ -1,4 +1,12 @@
 /* Estilos propios de FitLife (complementan Bootstrap 5) */
+
+/* Oswald: letra angosta tipo "gimnasio" para títulos. Se sirve desde /static
+   (no desde Google Fonts) para no abrir el CSP a otro dominio. */
+@font-face {
+  font-family: 'Oswald'; font-style: normal; font-weight: 200 700; font-display: swap;
+  src: url('../fonts/oswald.woff2') format('woff2');
+}
+
 :root {
   --fl-primario: #ea580c;
   --fl-primario-oscuro: #c2410c;
@@ -9,16 +17,40 @@
   --fl-rojo: #dc2626;
   --fl-amarillo: #d97706;
   --fl-azul: #2563eb;
+  --fl-titulos: 'Oswald', 'Arial Narrow', system-ui, sans-serif;
 }
 body { background: var(--fl-fondo); min-height: 100vh; display: flex; flex-direction: column; }
 main { flex: 1; }
+h1, h2, .h1, .h2, .h3, .display-5, .navbar-brand, .titulo-seccion { font-family: var(--fl-titulos); letter-spacing: .3px; }
 
-/* barra de navegación y pie */
-.navbar-fl { background: var(--fl-oscuro); }
-.navbar-fl .navbar-brand { letter-spacing: .5px; }
+/* cabecera con foto: en todas las páginas es una franja bajo el menú;
+   en la portada (.cabecera-portada) crece y lleva el texto principal */
+.cabecera {
+  position: relative; color: #fff;
+  background: linear-gradient(rgba(15, 23, 42, .55), rgba(15, 23, 42, .7)),
+              url('../img/fotos/cabecera.webp') center 55% / cover no-repeat var(--fl-oscuro);
+  border-bottom: 4px solid var(--fl-primario);
+  padding-bottom: 3.5rem;
+}
+.cabecera-portada {
+  background: linear-gradient(100deg, rgba(15, 23, 42, .92) 0%, rgba(15, 23, 42, .65) 55%, rgba(15, 23, 42, .35) 100%),
+              url('../img/fotos/portada.webp') center 30% / cover no-repeat var(--fl-oscuro);
+  padding-bottom: 0;
+}
+.portada { min-height: min(78vh, 720px); display: flex; align-items: center; padding: 3rem 0 4rem; }
+.portada h1 { font-size: clamp(2.4rem, 6vw, 4.6rem); font-weight: 700; text-transform: uppercase; line-height: 1.02; }
+.portada h1 span { color: var(--fl-primario); }
+.portada .lead { color: #e2e8f0; max-width: 34rem; }
+
+/* barra de navegación (transparente sobre la foto) y pie */
+.navbar-fl { background: rgba(15, 23, 42, .55); backdrop-filter: blur(6px); }
+.navbar-fl .navbar-brand { font-size: 1.5rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
 .navbar-fl .navbar-brand .bi { color: var(--fl-primario); }
 .navbar-fl .nav-link.active { color: #fff !important; border-bottom: 2px solid var(--fl-primario); }
-.footer-fl { background: var(--fl-oscuro); color: #cbd5e1; }
+.footer-fl { background: var(--fl-oscuro); color: #cbd5e1; border-top: 4px solid var(--fl-primario); }
+.footer-fl a { color: #cbd5e1; text-decoration: none; }
+.footer-fl a:hover { color: #fff; }
+.footer-fl .marca { font-family: var(--fl-titulos); font-size: 1.4rem; font-weight: 700; text-transform: uppercase; color: #fff; }
 
 /* botones y textos con el color de la marca */
 .btn-fl { background: var(--fl-primario); color: #fff; border: none; }
@@ -27,18 +59,50 @@ main { flex: 1; }
 .btn-outline-fl:hover { background: var(--fl-primario); color: #fff; }
 .text-fl { color: var(--fl-primario) !important; }
 .bg-fl { background: var(--fl-primario) !important; }
+.btn-lg.btn-fl, .btn-lg.btn-outline-light { text-transform: uppercase; font-family: var(--fl-titulos); letter-spacing: .5px; }
 
-/* portada */
-.hero {
-  background: radial-gradient(circle at 85% 20%, rgba(234, 88, 12, .45), transparent 45%),
-              linear-gradient(135deg, var(--fl-oscuro), var(--fl-oscuro-2));
-  color: #fff; border-radius: 1.25rem;
+/* portada: secciones */
+.titulo-seccion { text-transform: uppercase; font-weight: 700; font-size: clamp(1.6rem, 3vw, 2.2rem); }
+.titulo-seccion::after { content: ''; display: block; width: 3.5rem; height: 4px; background: var(--fl-primario);
+                         margin-top: .4rem; border-radius: 2px; }
+.text-center .titulo-seccion::after { margin-inline: auto; }
+.tarjeta-vidrio { background: rgba(255, 255, 255, .96); }
+.ventajas { background: var(--fl-oscuro); color: #cbd5e1; }
+.ventajas .bi { font-size: 2rem; color: var(--fl-primario); }
+.ventajas h3 { font-family: var(--fl-titulos); text-transform: uppercase; color: #fff; font-size: 1.15rem; }
+
+/* tarjetas con foto (actividades e instalaciones) */
+.foto-card { position: relative; border-radius: 1rem; overflow: hidden; aspect-ratio: 7 / 5; background: var(--fl-oscuro);
+             display: block; color: #fff; text-decoration: none; }
+.foto-card img { width: 100%; height: 100%; object-fit: cover; transition: transform .4s ease; }
+.foto-card:hover img { transform: scale(1.06); }
+.foto-card .pie { position: absolute; inset: auto 0 0 0; padding: 1rem 1.1rem;
+                  background: linear-gradient(transparent, rgba(15, 23, 42, .8) 35%, rgba(15, 23, 42, .95)); }
+.foto-card .pie h3 { font-family: var(--fl-titulos); text-transform: uppercase; font-size: 1.4rem; margin: 0; }
+.foto-card .pie p { margin: 0; font-size: .85rem; color: #e2e8f0; }
+.foto-card .chip { position: absolute; top: .75rem; left: .75rem; border-radius: 999px; padding: .2em .7em;
+                   font-size: .72rem; font-weight: 700; text-transform: uppercase; color: #fff; }
+
+/* franja final con foto fija de fondo */
+.banda-foto {
+  color: #fff; text-align: center; padding: 5rem 0;
+  background: linear-gradient(rgba(15, 23, 42, .75), rgba(234, 88, 12, .55)),
+              url('../img/fotos/grupal.webp') center / cover no-repeat fixed var(--fl-oscuro);
 }
-.hero .display-5 { font-weight: 800; }
+.banda-foto h2 { text-transform: uppercase; font-weight: 700; font-size: clamp(2rem, 5vw, 3.2rem); }
+/* en celulares "fixed" hace saltos: la foto se mueve normal */
+@media (max-width: 991.98px) { .banda-foto { background-attachment: scroll; } }
+
+/* ingreso: tarjeta partida con foto */
+.login-foto { background: linear-gradient(rgba(15, 23, 42, .25), rgba(15, 23, 42, .85)),
+                          url('../img/fotos/login.webp') center / cover no-repeat var(--fl-oscuro);
+              color: #fff; min-height: 100%; }
+.login-foto h2 { text-transform: uppercase; font-weight: 700; font-size: 2rem; line-height: 1.1; }
+
 .tarjeta { border: 0; border-radius: 1rem; box-shadow: 0 .25rem .9rem rgba(15, 23, 42, .06); }
-.tarjeta-plan { transition: transform .15s ease, box-shadow .15s ease; }
+.tarjeta-plan { transition: transform .15s ease, box-shadow .15s ease; border-top: 4px solid var(--fl-primario); }
 .tarjeta-plan:hover { transform: translateY(-3px); box-shadow: 0 .6rem 1.4rem rgba(15, 23, 42, .1); }
-.precio { font-size: 1.9rem; font-weight: 800; }
+.precio { font-family: var(--fl-titulos); font-size: 2.1rem; font-weight: 700; }
 .kpi { font-size: 2rem; font-weight: 800; line-height: 1; }
 .kpi-etiqueta { font-size: .8rem; text-transform: uppercase; letter-spacing: .5px; color: #64748b; }
 
@@ -86,6 +150,7 @@ main { flex: 1; }
 .resultado-espera { background: #fff; border: 2px dashed #cbd5e1; }
 .resultado-acceso .icono { font-size: 4rem; line-height: 1; }
 .lector-video { width: 100%; max-height: 320px; background: #000; border-radius: .75rem; object-fit: cover; }
+.lector-video.espejo { transform: scaleX(-1); }
 .celular { border: 10px solid var(--fl-oscuro); border-radius: 2rem; padding: .75rem; background: #fff;
            max-width: 260px; margin: 0 auto; }
 .celular img { width: 100%; }
@@ -112,4 +177,55 @@ main { flex: 1; }
 
 .error-codigo { font-size: 7rem; font-weight: 800; color: var(--fl-primario); line-height: 1; }
 .tabla-compacta td, .tabla-compacta th { vertical-align: middle; }
-@media print { .navbar, .footer-fl, .no-imprimir { display: none !important; } }
+
+/* comprobante de pago (formato documento, se imprime en A4) */
+.documento { position: relative; overflow: hidden; background: #fff; max-width: 860px; margin: 0 auto; padding: 2.5rem;
+             border-radius: .5rem; box-shadow: 0 .5rem 1.5rem rgba(15, 23, 42, .1); font-size: .9rem; color: #1e293b; }
+.doc-encabezado { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 1.5rem; padding-bottom: 1.25rem;
+                  border-bottom: 3px solid var(--fl-primario); color: #475569; font-size: .82rem; }
+.doc-logo { width: 56px; height: 56px; }
+.doc-marca { font-family: var(--fl-titulos); font-size: 1.6rem; font-weight: 700; text-transform: uppercase; color: var(--fl-oscuro);
+             line-height: 1.1; }
+.doc-marca span { color: var(--fl-primario); font-weight: 500; font-size: 1.05rem; }
+.doc-folio { border: 2px solid var(--fl-primario); border-radius: .4rem; padding: .75rem 1.25rem; text-align: center;
+             font-weight: 700; color: var(--fl-primario-oscuro); min-width: 230px; align-self: flex-start; }
+.doc-folio-titulo { font-family: var(--fl-titulos); text-transform: uppercase; font-size: 1.15rem; letter-spacing: .5px;
+                    margin: .2rem 0; color: var(--fl-oscuro); }
+.doc-datos { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem 2.5rem; margin: 1.5rem 0; }
+.doc-subtitulo { font-family: var(--fl-titulos); font-size: .85rem; text-transform: uppercase; letter-spacing: 1px; color: #64748b;
+                 border-bottom: 1px solid #e2e8f0; padding-bottom: .3rem; margin-bottom: .5rem; }
+.doc-datos .dato { display: flex; justify-content: space-between; gap: 1rem; padding: .15rem 0; }
+.doc-datos .dato span { color: #64748b; }
+.doc-detalle { width: 100%; border-collapse: collapse; margin-bottom: 1.25rem; }
+.doc-detalle th { background: var(--fl-oscuro); color: #fff; font-weight: 600; font-size: .75rem; text-transform: uppercase;
+                  letter-spacing: .5px; padding: .6rem .75rem; }
+.doc-detalle td { padding: .75rem; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+.doc-pie-detalle { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 1.5rem; }
+.doc-son { flex: 1 1 280px; background: #f8fafc; border-radius: .4rem; padding: .75rem 1rem; align-self: flex-start; }
+.doc-totales { flex: 0 1 280px; }
+.doc-totales > div { display: flex; justify-content: space-between; padding: .3rem .25rem; border-bottom: 1px solid #e2e8f0; }
+.doc-totales .doc-total { border: 0; margin-top: .4rem; padding: .6rem .75rem; background: var(--fl-primario); color: #fff;
+                          border-radius: .4rem; font-family: var(--fl-titulos); font-size: 1.35rem; font-weight: 700; }
+.doc-estado { margin-top: 1.5rem; padding: .7rem 1rem; border-radius: .4rem; border-left: 4px solid; }
+.doc-estado-pagado { background: #f0fdf4; border-color: var(--fl-verde); color: #166534; }
+.doc-estado-anulado { background: #fef2f2; border-color: var(--fl-rojo); color: #991b1b; }
+.doc-pie { margin-top: 2rem; padding-top: 1rem; border-top: 1px dashed #cbd5e1; text-align: center; font-size: .78rem; color: #64748b; }
+.marca-agua { position: absolute; top: 45%; left: 50%; transform: translate(-50%, -50%) rotate(-25deg); font-size: 7rem;
+              font-weight: 800; color: rgba(220, 38, 38, .12); letter-spacing: .5rem; pointer-events: none; }
+@media screen and (max-width: 575.98px) {
+  .documento { padding: 1.25rem; }
+  .doc-folio, .doc-totales { width: 100%; flex-basis: 100%; }
+  .doc-detalle { font-size: .8rem; }
+  .doc-detalle .col-opcional { display: none; }  /* en el celular: descripción, período y total */
+}
+
+@media print {
+  .navbar, .cabecera, .footer-fl, .no-imprimir, #mensajes { display: none !important; }
+  @page { size: A4; margin: 14mm; }
+  body { background: #fff; }
+  main.container { max-width: none; padding: 0 !important; }
+  .documento { box-shadow: none; max-width: none; padding: 0; }
+  .doc-encabezado { flex-wrap: nowrap; }
+  /* que el navegador imprima los fondos de colores (encabezado de la tabla y total) */
+  .documento * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

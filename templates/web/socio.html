@@ -110,7 +110,7 @@
       </tr>`).join('') || '<tr><td colspan="5" class="text-muted">No tienes clases reservadas.</td></tr>';
 
     document.getElementById('pagos').innerHTML = d.pagos.map((p) => `<tr>
-        <td>${p.comprobante}</td><td>${fechaHora(p.fecha)}</td><td>${esc(p.plan_nombre)}</td><td>${clp(p.monto)}</td>
+        <td><a href="/comprobantes/${p.id}/" title="Ver comprobante"><i class="bi bi-receipt"></i> ${p.comprobante}</a></td><td>${fechaHora(p.fecha)}</td><td>${esc(p.plan_nombre)}</td><td>${clp(p.monto)}</td>
         <td>${badge(p.estado)}</td></tr>`).join('') || '<tr><td colspan="5" class="text-muted">Sin pagos registrados.</td></tr>';
 
     document.getElementById('accesos').innerHTML = d.accesos.map((a) => `<tr>

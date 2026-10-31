@@ -17,4 +17,5 @@ urlpatterns = [
     path('gestion/membresias/', views.gestion_membresias, name='gestion-membresias'),
     path('gestion/planes/', views.gestion_planes, name='gestion-planes'),
     path('gestion/clases/', views.gestion_clases, name='gestion-clases'),
+    path('comprobantes/<int:pk>/', views.comprobante, name='comprobante'),
 ]

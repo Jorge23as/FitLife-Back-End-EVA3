@@ -92,8 +92,98 @@ Eso encontró 5 errores, que se corrigieron:
 5. **Horario desordenado:** las clases salían agrupadas por actividad y no por hora. Al contar las reservas con
    `Count()` la consulta usa `GROUP BY`, y en ese caso Django no aplica el `ordering` del modelo. Se agregó
    `order_by('inicio')` explícito.
+6. **"Generar QR nuevo" no hacía nada (lo encontró el alumno probando):** al escribir en el buscador de socios se
+   rearmaba la lista y se perdía el socio elegido, entonces el botón no tenía a quién generarle el QR. Ahora se
+   recuerda el socio que se está mostrando.
+7. **La cámara se veía al revés (lo encontró el alumno):** la cámara del notebook no se mostraba como espejo, como
+   en una videollamada. Ahora la imagen se voltea con CSS (`transform: scaleX(-1)`) y hay un botón para voltearla
+   a mano. La lectura del QR no cambia, porque se hace sobre el cuadro original de la cámara.
 
-## 6. Pendiente de registrar
+## 6. Rediseño visual "de centro deportivo"
+
+**Prompt:** "le pasé este software a uno de mis amigos de ciberseguridad y me dijeron que en la parte visual no
+parece un centro deportivo o un gym. así que vamos a ponerle imágenes de fondo y que se vea como una página de
+centro deportivo. aquí unas páginas de ejemplo (FitFit Temuco, Elysium, Smart Fit). ¿qué te parece mi idea? ¿no
+afecta la pauta?"
+
+**Respuesta / decisiones de la IA:**
+
+| Tema | Decisión | Por qué |
+|---|---|---|
+| Pauta | No la afecta: el frontend solo pide "interfaz web responsiva" con plantillas que consuman la API. Solo se cambiaron plantillas y CSS; la API, las reglas y el admin quedaron igual (84 pruebas OK). | Mejora la presentación en la defensa sin riesgo. |
+| Fotos | Fotos de Unsplash (licencia libre, uso comercial permitido) descargadas en `static/img/fotos/` en formato WebP (1,4 MB en total). No se copiaron imágenes de los sitios de ejemplo. | Derechos de autor; y servirlas desde `/static` no obliga a abrir el CSP (`img-src 'self'`). |
+| Letra | Oswald (licencia OFL) guardada en `static/fonts/` para títulos. | Mismo motivo: sin Google Fonts no hay que agregar dominios al CSP. |
+| Portada | Cabecera grande con foto, tarjetas con foto por actividad (cargadas desde `GET /api/actividades/`), instalaciones y franja final con foto. | Que se vea como la página de un gimnasio, igual que los ejemplos. |
+| Resto | Franja con foto bajo el menú en todas las páginas, ingreso con foto al lado, pie de página nuevo. Se revisó en escritorio y celular (390 px) con Chromium sin scroll horizontal. | Requisito "responsiva". |
+
+## 7. Comprobante de pago profesional y consulta sobre Webpay
+
+**Prompts:** "el comprobante no me convence, ¿podríamos poner uno más empresarial? y una pregunta: ¿la pauta pide
+Webpay Transbank?" y luego "sí, un comprobante más profesional".
+
+**Respuesta / decisiones de la IA:**
+
+| Tema | Decisión | Por qué |
+|---|---|---|
+| Webpay | No se agrega: la pauta pide "CRUD y administración de Planes, Pagos y Estados de Membresía", no pago en línea. | El ambiente de pruebas de Transbank es lento y podría fallar en la demo en vivo. |
+| Comprobante | Antes era una línea de texto en una ventana. Ahora es la página `/comprobantes/<id>/` con formato de documento: datos de la empresa, recuadro con RUT y N° de folio, datos del cliente, detalle, neto + IVA 19 % + total, monto en palabras, estado (pagado o anulado con marca de agua) y botón "Imprimir / Guardar PDF" (sale en una hoja A4). | Se ve como un documento comercial real y se puede entregar al socio. |
+| Seguridad | El socio puede abrir `GET /api/pagos/{id}/` solo de sus pagos: `get_queryset()` filtra por el usuario de la sesión, así que el de otro da 404 (no 403, para no revelar que existe). La lista de pagos sigue siendo solo para el personal. | Criterio 4 (permisos por rol). 2 pruebas nuevas (86 en total). |
+| Accesos | Botón en Gestión → Pagos, pregunta al registrar un pago en Socios, enlace en "Mi cuenta" del socio y columna "Ver / imprimir" en el admin de Django. | Que se use en los flujos de la demo. |
+| Datos de la empresa | Ficticios, en `settings.EMPRESA`. El pie aclara que es un documento interno y no reemplaza la boleta electrónica del SII. | No hacerlo pasar por un documento tributario. |
+
+## 8. Revisión de CVE del stack antes del despliegue
+
+**Prompts:** "dame todo el stack para que yo busque los CVE de sus versiones" y luego un reporte con 5 CVE
+(3 de Django 6.1.2 y 2 de Python 3.13/3.14) marcados como prioridad alta.
+
+**Verificación de la IA (2026-10-31):** cada CVE se buscó en cve.org, OSV, NVD y en los rastreadores de Debian y
+Ubuntu. Además se consultaron en OSV las 24 dependencias con su versión exacta (20 de PyPI y 4 librerías de CDN):
+ninguna tiene vulnerabilidades conocidas.
+
+| CVE | Qué es | ¿Nos afecta? |
+|---|---|---|
+| CVE-2026-87975 (Django) | Formsets con PK editable permiten borrar filas fuera del queryset | **No.** Afecta a 6.1 *antes de* 6.1.2; usamos 6.1.2, que es la versión que lo corrige. |
+| CVE-2026-84429 (Django) | DoS por cabeceras `Accept`/`Content-Type` con muchos separadores | **No.** Mismo rango: corregido en 6.1.2. |
+| CVE-2026-77050 (Django) | DoS por memoria en `get_supported_language_variant()` | **No.** Mismo rango: corregido en 6.1.2. |
+| CVE-2026-115557 (Python `ssl`) | Python no rechazaba certificados intermedios comprometidos (eMudhra): MitM | **Riesgo bajo.** Sin parche aún en Debian 13 ni Ubuntu (corregido arriba en 3.13.18 / 3.14.10). La app nunca usa Python como cliente TLS: no llama APIs externas, la base es por socket local y el HTTPS lo atiende Nginx (OpenSSL). Solo `pip install` usa TLS durante el despliegue. |
+| CVE-2026-114583 (Python `tarfile`) | `extractall(filter="tar")` puede escribir fuera de la carpeta destino | **No aplica.** El código no usa `tarfile` y es un ataque local (AV:L) que necesita un .tar malicioso. |
+
+**Estatus del resto del inventario** (OSV, que incluye GitHub Advisories y PyPA, consultado el 2026-10-31 17:19 con
+la versión exacta de cada paquete). La consulta sí encuentra avisos: por ejemplo djangorestframework tiene 11 en su
+historial, gunicorn 6, PyYAML 8, sqlparse 17 y pip 26, todos en versiones anteriores a las instaladas.
+
+| Paquete | Versión | Uso | Estatus |
+|---|---|---|---|
+| djangorestframework | 3.18.3 | API REST | Aprobado (sin CVE conocidos en la versión instalada) |
+| drf-spectacular | 0.30.0 | Esquema OpenAPI | Aprobado |
+| django-filter | 26.2 | Filtros de la API | Aprobado |
+| gunicorn | 26.2.0 | Servidor WSGI | Aprobado |
+| qrcode | 8.2 | QR en SVG | Aprobado |
+| python-dotenv | 1.2.4 | Lee el `.env` | Aprobado |
+| PyYAML | 6.0.3 | Esquema OpenAPI | Aprobado |
+| sqlparse | 0.6.0 | Dependencia de Django | Aprobado |
+| asgiref | 3.13.0 | Dependencia de Django | Aprobado |
+| jsonschema / jsonschema-specifications / referencing / rpds-py / attrs | 4.26.0 / 2025.9.1 / 0.37.0 / 2026.9.1 / 26.1.0 | Dependencias de drf-spectacular | Aprobado |
+| inflection / uritemplate | 0.5.1 / 4.2.0 | Dependencias de drf-spectacular | Aprobado |
+| packaging | 26.3 | Dependencia de gunicorn | Aprobado |
+| psycopg / psycopg-binary | 3.3.6 | Driver de PostgreSQL | Aprobado el paquete, **pero** la wheel trae OpenSSL 3.5.8 embebido; OpenSSL 3.5.9 (29-09-2026) corrige 14 CVE (1 alto de DTLS, 13 bajos). Riesgo bajo: la conexión es solo a PostgreSQL local. |
+| pip | 26.2.2 | Instalador (solo en el despliegue) | Aprobado |
+| bootstrap / bootstrap-icons / jsqr / swagger-ui-dist (npm, CDN con SRI) | 5.3.3 / 1.11.3 / 1.4.0 / 5.34.0 | Frontend | Aprobado (jsqr no tiene mantenimiento desde 2019) |
+
+**Decisión:** no hay que cambiar versiones. Antes de la demo se corre `sudo apt update && sudo apt upgrade` en la EC2
+para tomar los parches de Ubuntu cuando salgan.
+
+**Mitigación aplicada para psycopg-binary (opción elegida por el alumno):** se sacó `psycopg-binary` de
+`requirements.txt`. Ahora psycopg usa la `libpq` del sistema (paquete `libpq5`, agregado a `deploy/instalar.sh`), que va
+enlazada al OpenSSL de Ubuntu y se actualiza con `apt upgrade`. `deploy/actualizar.sh` desinstala psycopg-binary si
+quedó de antes, y una prueba nueva (`test_psycopg_usa_la_libpq_del_sistema`) falla si se vuelve a instalar.
+La conexión a PostgreSQL y las migraciones no cambian (87 pruebas OK contra PostgreSQL).
+
+Aclaración de la IA: la libpq del sistema se carga en el mismo proceso de Gunicorn, así que no aísla la memoria ni
+evita por sí sola un buffer overflow. Lo que gana es que los parches de OpenSSL llegan por apt, en vez de quedar
+congelados en la versión embebida de la wheel.
+
+## 9. Pendiente de registrar
 
 - Despliegue en la instancia EC2 y pruebas en la IP pública.
 - Guía de estudio para la defensa y preguntas de práctica de la receta.

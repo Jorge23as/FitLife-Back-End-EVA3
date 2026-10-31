@@ -10,6 +10,8 @@ PGPASSWORD=$(grep '^DB_PASSWORD=' .env | cut -d= -f2-) \
 echo "Respaldo de la base en ~/respaldos/"
 git pull --ff-only
 venv/bin/python -m pip install -q -r requirements.txt
+# si quedó instalada de antes, psycopg la preferiría (con su OpenSSL embebido): se saca para usar la libpq del sistema
+venv/bin/python -m pip uninstall -q -y psycopg-binary 2>/dev/null || true
 venv/bin/python manage.py migrate --noinput
 venv/bin/python manage.py collectstatic --noinput -v 0
 sudo chown -R ubuntu:www-data staticfiles

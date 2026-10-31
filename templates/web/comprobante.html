@@ -1,0 +1,142 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block titulo %}Comprobante de pago{% endblock %}
+{% block contenido %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 no-imprimir">
+  <a href="{% if rol == 'SOCIO' %}{% url 'mi-cuenta' %}{% else %}{% url 'gestion-pagos' %}{% endif %}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left"></i> Volver</a>
+  <button class="btn btn-fl" data-accion="imprimir" id="btn-imprimir" disabled><i class="bi bi-printer"></i> Imprimir / Guardar PDF</button>
+</div>
+
+<!-- El documento se arma con GET /api/pagos/{{ pago_id }}/ (la API revisa que el pago sea de quien lo pide) -->
+<article id="documento" class="documento" aria-live="polite">
+  <div class="text-center text-muted py-5">Cargando comprobante...</div>
+</article>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}">
+  const PAGO_ID = {{ pago_id }};
+  const EMPRESA = {
+    razonSocial: '{{ empresa.razon_social|escapejs }}', rut: '{{ empresa.rut|escapejs }}', giro: '{{ empresa.giro|escapejs }}',
+    direccion: '{{ empresa.direccion|escapejs }}', telefono: '{{ empresa.telefono|escapejs }}', correo: '{{ empresa.correo|escapejs }}',
+  };
+  const IVA = 0.19;  // los precios de los planes incluyen IVA
+  const fechaDoc = (s) => new Date(s).toLocaleString('es-CL', { timeZone: ZONA, day: '2-digit', month: '2-digit', year: 'numeric',
+                                                                 hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+  const rutConPuntos = (rut) => String(rut || '').replace(/^(\d+)-/, (_, n) => `${Number(n).toLocaleString('es-CL')}-`);
+
+  // Monto en palabras, como en los documentos comerciales: 34990 -> "treinta y cuatro mil novecientos noventa"
+  function enPalabras(n) {
+    const UNIDADES = ['', 'un', 'dos', 'tres', 'cuatro', 'cinco', 'seis', 'siete', 'ocho', 'nueve', 'diez', 'once', 'doce',
+      'trece', 'catorce', 'quince', 'dieciséis', 'diecisiete', 'dieciocho', 'diecinueve', 'veinte', 'veintiún', 'veintidós',
+      'veintitrés', 'veinticuatro', 'veinticinco', 'veintiséis', 'veintisiete', 'veintiocho', 'veintinueve'];
+    const DECENAS = ['', '', '', 'treinta', 'cuarenta', 'cincuenta', 'sesenta', 'setenta', 'ochenta', 'noventa'];
+    const CENTENAS = ['', 'ciento', 'doscientos', 'trescientos', 'cuatrocientos', 'quinientos', 'seiscientos', 'setecientos',
+      'ochocientos', 'novecientos'];
+    const hasta999 = (x) => {
+      if (x === 100) return 'cien';
+      const r = x % 100;
+      const resto = r < 30 ? UNIDADES[r] : DECENAS[Math.floor(r / 10)] + (r % 10 ? ` y ${UNIDADES[r % 10]}` : '');
+      return [CENTENAS[Math.floor(x / 100)], resto].filter(Boolean).join(' ');
+    };
+    if (!n) return 'cero';
+    const millones = Math.floor(n / 1e6);
+    const miles = Math.floor(n / 1000) % 1000;
+    return [
+      millones ? (millones === 1 ? 'un millón' : `${hasta999(millones)} millones`) + (n % 1e6 ? '' : ' de') : '',
+      miles ? (miles === 1 ? 'mil' : `${hasta999(miles)} mil`) : '',
+      hasta999(n % 1000),
+    ].filter(Boolean).join(' ');
+  }
+
+  function pintar(p) {
+    const anulado = p.estado === 'ANULADO';
+    const neto = Math.round(p.monto / (1 + IVA));
+    const fila = (etiqueta, valor) => `<div class="dato"><span>${etiqueta}</span><strong>${valor}</strong></div>`;
+    document.title = `Comprobante ${p.comprobante} | FitLife`;
+    document.getElementById('documento').innerHTML = `
+      ${anulado ? '<div class="marca-agua">ANULADO</div>' : ''}
+      <header class="doc-encabezado">
+        <div class="d-flex gap-3 align-items-start">
+          <img src="{% static 'img/logo.svg' %}" alt="FitLife" class="doc-logo">
+          <div>
+            <div class="doc-marca">FitLife <span>Centro Deportivo</span></div>
+            <div class="fw-semibold">${esc(EMPRESA.razonSocial)}</div>
+            <div>Giro: ${esc(EMPRESA.giro)}</div>
+            <div>${esc(EMPRESA.direccion)}</div>
+            <div>${esc(EMPRESA.telefono)} · ${esc(EMPRESA.correo)}</div>
+          </div>
+        </div>
+        <div class="doc-folio">
+          <div>R.U.T. ${esc(EMPRESA.rut)}</div>
+          <div class="doc-folio-titulo">Comprobante de pago</div>
+          <div>N° ${esc(p.comprobante)}</div>
+        </div>
+      </header>
+
+      <section class="doc-datos">
+        <div>
+          <h2 class="doc-subtitulo">Cliente</h2>
+          ${fila('Nombre', esc(p.socio_nombre))}
+          ${fila('RUT', esc(rutConPuntos(p.socio_rut)))}
+          ${fila('N° de socio', String(p.socio).padStart(5, '0'))}
+        </div>
+        <div>
+          <h2 class="doc-subtitulo">Pago</h2>
+          ${fila('Fecha de emisión', fechaDoc(p.fecha))}
+          ${fila('Medio de pago', esc(p.metodo_texto))}
+          ${fila('Atendido por', esc(p.registrado_por || 'Sistema'))}
+        </div>
+      </section>
+
+      <table class="doc-detalle">
+        <thead><tr><th>Descripción</th><th>Período de la membresía</th><th class="text-center col-opcional">Cant.</th>
+          <th class="text-end col-opcional">Precio unitario</th><th class="text-end">Total</th></tr></thead>
+        <tbody><tr>
+          <td><strong>Membresía plan ${esc(p.plan_nombre)}</strong><div class="small text-muted">Acceso a FitLife con código QR</div></td>
+          <td><span class="text-nowrap">${fecha(p.membresia_inicio)}</span> al <span class="text-nowrap">${fecha(p.membresia_fin)}</span></td>
+          <td class="text-center col-opcional">1</td><td class="text-end col-opcional">${clp(p.monto)}</td><td class="text-end">${clp(p.monto)}</td>
+        </tr></tbody>
+      </table>
+
+      <div class="doc-pie-detalle">
+        <div class="doc-son">
+          <div class="small text-muted">Son:</div>
+          <div class="fw-semibold">${enPalabras(p.monto).toUpperCase()} PESOS</div>
+          ${p.observacion ? `<div class="small mt-2"><span class="text-muted">Observación:</span> ${esc(p.observacion)}</div>` : ''}
+        </div>
+        <div class="doc-totales">
+          <div><span>Monto neto</span><span>${clp(neto)}</span></div>
+          <div><span>IVA (19%)</span><span>${clp(p.monto - neto)}</span></div>
+          <div class="doc-total"><span>Total</span><span>${clp(p.monto)}</span></div>
+        </div>
+      </div>
+
+      ${anulado
+        ? `<div class="doc-estado doc-estado-anulado"><i class="bi bi-x-octagon"></i> <strong>Pago anulado</strong> el ${fechaDoc(p.anulado_en)}.
+            Motivo: ${esc(p.motivo_anulacion || '-')}. La membresía asociada quedó cancelada.</div>`
+        : `<div class="doc-estado doc-estado-pagado"><i class="bi bi-check-circle"></i> <strong>Pagado</strong> · Pago recibido
+            conforme por ${clp(p.monto)} (${esc(p.metodo_texto.toLowerCase())}).</div>`}
+
+      <footer class="doc-pie">
+        <div>Gracias por entrenar con nosotros. Presenta tu QR de la app FitLife en la entrada.</div>
+        <div>Documento interno de control de pagos; no reemplaza la boleta electrónica emitida ante el SII.</div>
+      </footer>`;
+    document.getElementById('btn-imprimir').disabled = false;
+  }
+
+  async function cargar() {
+    const r = await api(`/api/pagos/${PAGO_ID}/`);
+    if (!r.ok) {
+      document.getElementById('documento').innerHTML =
+        `<div class="text-center py-5"><div class="h5">No se encontró el comprobante</div><div class="text-muted">${esc(errorTexto(r.data))}</div></div>`;
+      return;
+    }
+    pintar(r.data);
+  }
+
+  registrarAcciones({ imprimir() { window.print(); } });
+  cargar();
+</script>
+{% endblock %}

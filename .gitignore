@@ -1,6 +1,7 @@
 # Entorno y secretos
 venv/
 .env
+credenciales.txt
 # Python
 __pycache__/
 *.pyc

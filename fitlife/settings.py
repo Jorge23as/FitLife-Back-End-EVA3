@@ -220,6 +220,16 @@ REST_FRAMEWORK = {
 # 60 segundos (la página lo renueva cada 30). Ver accesos/qr.py.
 QR_VIGENCIA_SEGUNDOS = int(os.getenv('QR_VIGENCIA_SEGUNDOS', '60'))
 
+# Datos de la empresa para el encabezado del comprobante de pago (ficticios, para la evaluación)
+EMPRESA = {
+    'razon_social': 'FitLife Centro Deportivo SpA',
+    'rut': '76.543.210-3',
+    'giro': 'Gimnasios y centros de acondicionamiento físico',
+    'direccion': 'Av. Providencia 1234, Providencia, Santiago',
+    'telefono': '+56 2 2345 6789',
+    'correo': 'contacto@fitlife.cl',
+}
+
 # Mis datos para la descripción de Swagger y el pie del admin
 DATOS_ALUMNO = {
     'nombre': 'Jorge Conejeros Suazo',

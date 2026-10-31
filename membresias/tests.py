@@ -177,6 +177,24 @@ class ApiPagosTest(APITestCase):
         self.client.force_login(self.socio.usuario)
         self.assertEqual(self.client.get('/api/pagos/').status_code, 403)
 
+    def test_el_socio_abre_solo_el_comprobante_de_sus_pagos(self):
+        mio = services.registrar_pago(self.socio, self.plan, 'DEBITO')
+        ajeno = services.registrar_pago(crear_socio(), self.plan, 'EFECTIVO')
+        self.client.force_login(self.socio.usuario)
+        r = self.client.get(f'/api/pagos/{mio.id}/')
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.data['comprobante'], mio.comprobante)
+        self.assertEqual(self.client.get(f'/api/pagos/{ajeno.id}/').status_code, 404)
+        self.assertEqual(self.client.get(f'/comprobantes/{mio.id}/').status_code, 200)
+
+    def test_la_pagina_del_comprobante_pide_sesion(self):
+        pago = services.registrar_pago(self.socio, self.plan, 'DEBITO')
+        r = self.client.get(f'/comprobantes/{pago.id}/')
+        self.assertEqual(r.status_code, 302)
+        self.assertIn('/login/', r['Location'])
+        self.client.force_login(self.recepcion)
+        self.assertContains(self.client.get(f'/comprobantes/{pago.id}/'), 'Comprobante de pago')
+
     def test_crud_de_planes_solo_para_el_administrador(self):
         datos = {'nombre': 'Plan Nuevo', 'precio': 20000, 'duracion_dias': 30, 'dias_congelamiento': 0}
         self.client.force_login(self.recepcion)

@@ -102,3 +102,11 @@ class CargarDemoTest(APITestCase):
         self.assertTrue(Membresia.objects.filter(estado='CONGELADA').exists())
         self.assertGreater(accesos.estado_aforo(accesos.sede_principal())['actual'], 0)
         call_command('cargar_demo', reset=True, stdout=io.StringIO())  # se puede repetir
+
+
+class DriverBaseDeDatosTest(APITestCase):
+
+    def test_psycopg_usa_la_libpq_del_sistema(self):
+        # sin psycopg-binary (que trae su propio OpenSSL): OpenSSL y libpq se parchan con apt
+        from psycopg import pq
+        self.assertEqual(pq.__impl__, 'python')

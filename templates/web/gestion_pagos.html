@@ -65,7 +65,7 @@
         <td>${clp(p.monto)}</td><td class="small">${esc(p.metodo_texto)}</td>
         <td>${badge(p.estado)}${p.motivo_anulacion ? `<div class="small text-muted">${esc(p.motivo_anulacion)}</div>` : ''}</td>
         <td class="text-end text-nowrap">
-          <button class="btn btn-sm btn-outline-secondary" data-accion="comprobante" data-id="${p.id}" title="Ver comprobante"><i class="bi bi-receipt"></i></button>
+          <a class="btn btn-sm btn-outline-secondary" href="/comprobantes/${p.id}/" title="Ver comprobante"><i class="bi bi-receipt"></i></a>
           ${ES_ADMIN && p.estado === 'PAGADO' ? `<button class="btn btn-sm btn-outline-danger" data-accion="anular" data-id="${p.id}" title="Anular"><i class="bi bi-x-circle"></i></button>` : ''}
         </td></tr>`).join('') || '<tr><td colspan="8" class="text-muted p-3">No hay pagos con ese filtro.</td></tr>';
     document.getElementById('paginas').innerHTML = `
@@ -84,12 +84,6 @@
       if (!r.ok) return mensaje(errorTexto(r.data), 'danger');
       mensaje(`${p.comprobante} anulado.`, 'info');
       cargar(); cargarResumen();
-    },
-    comprobante(btn) {
-      const p = pagos[btn.dataset.id];
-      dialogo({ titulo: `Comprobante ${p.comprobante}`, textoOk: 'Cerrar',
-        mensaje: `${p.socio_nombre} (${p.socio_rut}) · ${p.plan_nombre} · ${clp(p.monto)} · ${p.metodo_texto} · ${fechaHora(p.fecha)} · ` +
-                 `Membresía del ${fecha(p.membresia_inicio)} al ${fecha(p.membresia_fin)} · Registrado por ${p.registrado_por || '-'} · Estado: ${p.estado}` });
     },
   });
 

@@ -1,54 +1,106 @@
 {% extends 'base.html' %}
 {% block titulo %}Inicio{% endblock %}
-{% block contenido %}
-<section class="hero p-4 p-md-5 mb-4">
-  <div class="row align-items-center g-4">
-    <div class="col-lg-7">
-      <span class="badge bg-fl mb-3">Centro deportivo FitLife</span>
-      <h1 class="display-5">Entrena sin filas ni sobrecupos.</h1>
-      <p class="lead text-white-50 mb-4">Entra con tu QR, reserva tus clases (con lista de espera automática) y
-        revisa en vivo cuánta gente hay antes de venir.</p>
-      <div class="d-flex flex-wrap gap-2">
-        {% if rol == 'SOCIO' %}
-          <a href="{% url 'mi-qr' %}" class="btn btn-fl btn-lg"><i class="bi bi-qr-code"></i> Mostrar mi QR</a>
-          <a href="{% url 'horario' %}" class="btn btn-outline-light btn-lg">Reservar una clase</a>
-        {% elif es_staff_fitlife %}
-          <a href="{% url 'recepcion' %}" class="btn btn-fl btn-lg"><i class="bi bi-qr-code-scan"></i> Control de acceso</a>
-          <a href="{% url 'aforo' %}" class="btn btn-outline-light btn-lg">Ver aforo</a>
-        {% elif rol == 'INSTRUCTOR' %}
-          <a href="{% url 'instructor' %}" class="btn btn-fl btn-lg"><i class="bi bi-clipboard-check"></i> Mis clases</a>
-        {% else %}
-          <a href="{% url 'login' %}" class="btn btn-fl btn-lg"><i class="bi bi-box-arrow-in-right"></i> Ingresar</a>
-          <a href="{% url 'horario' %}" class="btn btn-outline-light btn-lg">Ver horario de clases</a>
-        {% endif %}
+{% load static %}
+{% block clase_cabecera %}cabecera-portada{% endblock %}
+{% block cabecera %}
+<section class="portada">
+  <div class="container">
+    <div class="row align-items-center g-4">
+      <div class="col-lg-7">
+        <span class="badge bg-fl mb-3 px-3 py-2 text-uppercase">Centro deportivo FitLife</span>
+        <h1>Entrena sin filas<br>ni <span>sobrecupos</span>.</h1>
+        <p class="lead my-4">Entra con tu QR, reserva tus clases (con lista de espera automática) y
+          revisa en vivo cuánta gente hay antes de venir.</p>
+        <div class="d-flex flex-wrap gap-2">
+          {% if rol == 'SOCIO' %}
+            <a href="{% url 'mi-qr' %}" class="btn btn-fl btn-lg"><i class="bi bi-qr-code"></i> Mostrar mi QR</a>
+            <a href="{% url 'horario' %}" class="btn btn-outline-light btn-lg">Reservar una clase</a>
+          {% elif es_staff_fitlife %}
+            <a href="{% url 'recepcion' %}" class="btn btn-fl btn-lg"><i class="bi bi-qr-code-scan"></i> Control de acceso</a>
+            <a href="{% url 'aforo' %}" class="btn btn-outline-light btn-lg">Ver aforo</a>
+          {% elif rol == 'INSTRUCTOR' %}
+            <a href="{% url 'instructor' %}" class="btn btn-fl btn-lg"><i class="bi bi-clipboard-check"></i> Mis clases</a>
+          {% else %}
+            <a href="{% url 'login' %}" class="btn btn-fl btn-lg"><i class="bi bi-box-arrow-in-right"></i> Ingresar</a>
+            <a href="{% url 'horario' %}" class="btn btn-outline-light btn-lg">Ver horario de clases</a>
+          {% endif %}
+        </div>
+      </div>
+      <div class="col-lg-5">
+        <!-- aforo público: solo cuánta gente hay, sin nombres (GET /api/aforo/publico/) -->
+        <div class="card tarjeta tarjeta-vidrio text-dark shadow-lg"><div class="card-body p-4">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="kpi-etiqueta"><span class="punto-vivo me-1"></span> Aforo en este momento</span>
+            <span id="aforo-sede" class="small text-muted"></span>
+          </div>
+          <div class="d-flex align-items-end gap-2 mb-2">
+            <span id="aforo-actual" class="kpi">-</span><span class="text-muted mb-1" id="aforo-maximo"></span>
+            <span id="aforo-nivel" class="ms-auto"></span>
+          </div>
+          <div id="aforo-barra"></div>
+          <div id="aforo-nota" class="small text-muted mt-2"></div>
+        </div></div>
       </div>
     </div>
-    <div class="col-lg-5">
-      <!-- aforo público: solo cuánta gente hay, sin nombres (GET /api/aforo/publico/) -->
-      <div class="card tarjeta text-dark"><div class="card-body p-4">
-        <div class="d-flex justify-content-between align-items-center mb-2">
-          <span class="kpi-etiqueta"><span class="punto-vivo me-1"></span> Aforo en este momento</span>
-          <span id="aforo-sede" class="small text-muted"></span>
-        </div>
-        <div class="d-flex align-items-end gap-2 mb-2">
-          <span id="aforo-actual" class="kpi">-</span><span class="text-muted mb-1" id="aforo-maximo"></span>
-          <span id="aforo-nivel" class="ms-auto"></span>
-        </div>
-        <div id="aforo-barra"></div>
-        <div id="aforo-nota" class="small text-muted mt-2"></div>
-      </div></div>
+  </div>
+</section>
+{% endblock %}
+
+{% block clase_main %}{% endblock %}
+{% block contenido %}
+<section class="ventajas py-4">
+  <div class="container">
+    <div class="row g-4 text-center text-md-start">
+      <div class="col-6 col-md-3"><i class="bi bi-qr-code-scan"></i><h3 class="mt-2 mb-1">Acceso con QR</h3>
+        <div class="small">Sin filas en recepción: muestras tu código y entras.</div></div>
+      <div class="col-6 col-md-3"><i class="bi bi-calendar2-check"></i><h3 class="mt-2 mb-1">Reserva online</h3>
+        <div class="small">Asegura tu cupo en spinning, yoga, boxeo y más.</div></div>
+      <div class="col-6 col-md-3"><i class="bi bi-hourglass-split"></i><h3 class="mt-2 mb-1">Lista de espera</h3>
+        <div class="small">Si alguien cancela, subes solo y te avisamos.</div></div>
+      <div class="col-6 col-md-3"><i class="bi bi-speedometer2"></i><h3 class="mt-2 mb-1">Aforo en vivo</h3>
+        <div class="small">Mira cuánta gente hay antes de salir de casa.</div></div>
     </div>
   </div>
 </section>
 
-<h2 class="h4 mb-3"><i class="bi bi-tags text-fl"></i> Planes</h2>
-<div id="planes" class="row g-3 mb-5"><div class="text-muted">Cargando planes...</div></div>
+<div class="container py-5">
+  <h2 class="titulo-seccion mb-4">Nuestras clases</h2>
+  <div id="actividades" class="row g-3 mb-5"><div class="text-muted">Cargando clases...</div></div>
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-  <h2 class="h4 mb-0"><i class="bi bi-calendar-day text-fl"></i> Clases de hoy</h2>
-  <a href="{% url 'horario' %}" class="btn btn-sm btn-outline-fl">Horario completo</a>
+  <h2 class="titulo-seccion mb-4">Planes</h2>
+  <div id="planes" class="row g-3 mb-5"><div class="text-muted">Cargando planes...</div></div>
+
+  <div class="d-flex justify-content-between align-items-end mb-4">
+    <h2 class="titulo-seccion mb-0">Clases de hoy</h2>
+    <a href="{% url 'horario' %}" class="btn btn-sm btn-outline-fl">Horario completo</a>
+  </div>
+  <div id="clases-hoy" class="row g-3 mb-5"><div class="text-muted">Cargando clases...</div></div>
+
+  <h2 class="titulo-seccion mb-4">Instalaciones</h2>
+  <div class="row g-3">
+    <div class="col-md-4"><div class="foto-card">
+      <img src="{% static 'img/fotos/sala-pesas.webp' %}" alt="Sala de pesas" loading="lazy">
+      <div class="pie"><h3>Sala de pesas</h3><p>Mancuernas, barras y racks de sentadilla.</p></div></div></div>
+    <div class="col-md-4"><div class="foto-card">
+      <img src="{% static 'img/fotos/sala-cardio.webp' %}" alt="Zona de cardio" loading="lazy">
+      <div class="pie"><h3>Zona cardio</h3><p>Trotadoras, elípticas y bicicletas.</p></div></div></div>
+    <div class="col-md-4"><div class="foto-card">
+      <img src="{% static 'img/fotos/sala-maquinas.webp' %}" alt="Sala de máquinas" loading="lazy">
+      <div class="pie"><h3>Sala de máquinas</h3><p>Equipos guiados para todos los niveles.</p></div></div></div>
+  </div>
 </div>
-<div id="clases-hoy" class="row g-3"><div class="text-muted">Cargando clases...</div></div>
+
+<section class="banda-foto">
+  <div class="container">
+    <h2>Tu mejor versión parte hoy</h2>
+    <p class="lead mb-4">Elige tu plan, reserva tu clase y entra con tu QR.</p>
+    {% if user.is_authenticated %}
+      <a href="{% url 'horario' %}" class="btn btn-light btn-lg fw-semibold">Ver horario de clases</a>
+    {% else %}
+      <a href="{% url 'login' %}" class="btn btn-light btn-lg fw-semibold">Ingresar a FitLife</a>
+    {% endif %}
+  </div>
+</section>
 {% endblock %}
 
 {% block scripts %}
@@ -68,6 +120,30 @@
     document.getElementById('aforo-nota').textContent = a.abierta
       ? `Actualizado a las ${hora(a.actualizado)} · se actualiza solo`
       : 'La sede está cerrada en este momento.';
+  }
+
+  // Foto de cada actividad según su nombre (las que no calzan usan la foto de clase grupal)
+  const FOTOS = { spinning: 'spinning', yoga: 'yoga', funcional: 'funcional', pilates: 'pilates', zumba: 'zumba',
+                  boxeo: 'boxeo', hiit: 'hiit' };
+  const INTENSIDAD = { BAJA: ['#16a34a', 'Intensidad baja'], MEDIA: ['#d97706', 'Intensidad media'], ALTA: ['#dc2626', 'Intensidad alta'] };
+  const fotoActividad = (nombre) => {
+    const clave = Object.keys(FOTOS).find((k) => nombre.toLowerCase().includes(k));
+    return `{% static 'img/fotos/' %}${clave ? FOTOS[clave] : 'grupal'}.webp`;
+  };
+
+  async function cargarActividades() {
+    const r = await api('/api/actividades/?activa=true');
+    const zona = document.getElementById('actividades');
+    if (!r.ok) { zona.innerHTML = '<div class="text-danger">No se pudieron cargar las clases.</div>'; return; }
+    zona.innerHTML = r.data.map((a) => {
+      const [color, texto] = INTENSIDAD[a.intensidad] || ['#64748b', ''];
+      return `
+      <div class="col-sm-6 col-lg-3"><a class="foto-card" href="{% url 'horario' %}">
+        <img src="${fotoActividad(a.nombre)}" alt="${esc(a.nombre)}" loading="lazy">
+        ${texto ? `<span class="chip" style="background:${color}">${texto}</span>` : ''}
+        <div class="pie"><h3>${esc(a.nombre)}</h3><p>${a.duracion_minutos} min · ${esc(a.descripcion)}</p></div>
+      </a></div>`;
+    }).join('') || '<div class="text-muted">Pronto publicaremos nuevas clases.</div>';
   }
 
   async function cargarPlanes() {
@@ -106,6 +182,7 @@
   }
 
   cadaCierto(cargarAforo, 10000);
+  cargarActividades();
   cargarPlanes();
   cargarClasesHoy();
 </script>

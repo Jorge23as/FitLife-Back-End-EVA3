@@ -36,7 +36,7 @@ membresía vencida**.
 | Paquete | Uso |
 |---|---|
 | Django 6.1 + DRF 3.18 | Framework, API REST, admin, sesiones |
-| PostgreSQL 16 + psycopg 3 | Base de datos relacional (`django.db.backends.postgresql`) |
+| PostgreSQL 16 + psycopg 3 | Base de datos relacional (`django.db.backends.postgresql`). psycopg usa la `libpq` del sistema (no `psycopg-binary`), así OpenSSL se actualiza con `apt` |
 | django-filter | Filtros de la API (`?estado=`, `?desde=`, `?por_vencer=7`...) |
 | drf-spectacular | Swagger UI en `/api/docs/` |
 | qrcode | QR de acceso en SVG |
@@ -146,6 +146,7 @@ Sede 1─N RegistroAcceso N─1 Socio (null si el QR no sirve)
 | Público | `GET /api/planes/` · `GET /api/clases/` · `GET /api/aforo/publico/` | Planes, horario y aforo (sin nombres) |
 | Socio | `GET /api/mi-cuenta/` · `GET /api/mi-qr/` | Membresía, reservas, pagos, accesos y QR dinámico |
 | Socio / personal | `POST /api/reservas/` · `POST /api/reservas/{id}/cancelar/` | Reservar (cupo o lista de espera) y cancelar |
+| Socio / personal | `GET /api/pagos/{id}/` | Datos del comprobante de pago (el socio solo los suyos: el de otro da 404). Página imprimible: `/comprobantes/{id}/` |
 | Personal | `/api/socios/` · `/api/pagos/` · `/api/membresias/` (+ `congelar`, `descongelar`) | Gestión diaria de recepción |
 | Personal | `POST /api/accesos/validar/` · `GET /api/accesos/` · `/api/visitas/` · `GET /api/aforo/` | Control de acceso y dashboard |
 | Instructor / personal | `GET /api/clases/{id}/asistentes/` · `POST /api/reservas/{id}/asistencia/` | Lista de la clase y asistencia |
