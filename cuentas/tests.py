@@ -3,6 +3,7 @@ Pruebas de seguridad: sesiones, login con bloqueo, CSRF, roles y permisos.
 python manage.py test cuentas
 """
 from django.contrib.auth.models import Group
+from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.core.management import call_command
 from rest_framework.test import APIClient, APITestCase
@@ -130,6 +131,57 @@ class UsuariosTest(APITestCase):
                                                           'username': socio.usuario.username})
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.data['telefono'], '+56911112222')
+
+
+class RegistroTest(APITestCase):
+
+    DATOS = {'username': 'nueva.socia', 'password': 'Gimnasio.2026', 'first_name': 'Ana', 'last_name': 'Pérez',
+             'email': 'ana@correo.cl', 'rut': '11.111.111-1'}
+
+    def setUp(self):
+        cache.clear()  # el límite de registros por IP se cuenta en la caché
+
+    def test_el_registro_crea_un_socio_sin_membresia_y_lo_deja_con_sesion(self):
+        r = self.client.post('/api/auth/registro/', self.DATOS)
+        self.assertEqual(r.status_code, 201)
+        self.assertEqual((r.data['rol'], r.data['inicio']), ('SOCIO', '/socio/'))
+        usuario = Usuario.objects.get(username='nueva.socia')
+        self.assertEqual((usuario.rut, usuario.is_staff), ('11111111-1', False))
+        self.assertTrue(usuario.check_password('Gimnasio.2026'))
+        cuenta = self.client.get('/api/mi-cuenta/')
+        self.assertEqual(cuenta.status_code, 200)
+        self.assertEqual(cuenta.data['membresia']['estado'], 'SIN_MEMBRESIA')
+
+    def test_no_se_puede_elegir_el_rol_ni_activar_campos_de_personal(self):
+        r = self.client.post('/api/auth/registro/', {**self.DATOS, 'rol': 'ADMIN', 'is_staff': True,
+                                                     'is_superuser': True, 'activo': False})
+        self.assertEqual(r.status_code, 201)
+        usuario = Usuario.objects.get(username='nueva.socia')
+        self.assertEqual((usuario.rol, usuario.is_staff, usuario.is_superuser, usuario.is_active),
+                         (Rol.SOCIO, False, False, True))
+
+    def test_valida_rut_repetido_clave_debil_y_csrf(self):
+        self.client.post('/api/auth/registro/', self.DATOS)
+        self.client.logout()
+        r = self.client.post('/api/auth/registro/', {**self.DATOS, 'username': 'otra', 'rut': '111111111'})
+        self.assertIn('rut', r.data)
+        r = self.client.post('/api/auth/registro/', {**self.DATOS, 'username': 'otra', 'rut': '22222222-2',
+                                                     'password': '12345678'})
+        self.assertIn('password', r.data)
+        cliente = APIClient(enforce_csrf_checks=True)
+        r = cliente.post('/api/auth/registro/', {**self.DATOS, 'username': 'otra', 'rut': '22222222-2'})
+        self.assertEqual(r.status_code, 403)
+
+    def test_maximo_cinco_cuentas_por_hora_por_ip(self):
+        ruts = ['22222222-2', '33333333-3', '44444444-4', '55555555-5', '66666666-6', '77777777-7']
+        for i, rut in enumerate(ruts):
+            r = APIClient().post('/api/auth/registro/', {**self.DATOS, 'username': f'socio{i}', 'rut': rut})
+            self.assertEqual(r.status_code, 201 if i < 5 else 429)
+
+    def test_la_pagina_de_registro(self):
+        self.assertContains(self.client.get('/registro/'), 'Crear cuenta de socio')
+        self.client.force_login(crear_usuario(Rol.RECEPCION))
+        self.assertRedirects(self.client.get('/registro/'), '/recepcion/', fetch_redirect_response=False)
 
 
 class PaginasTest(APITestCase):

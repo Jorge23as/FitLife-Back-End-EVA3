@@ -6,12 +6,12 @@
 | | |
 |---|---|
 | **Sitio en AWS EC2** | **https://fitlife-jorge.duckdns.org** |
-| **IP pública de la instancia** | **`<IP_PUBLICA>`** · `http://<IP_PUBLICA>` redirige al sitio |
+| **IP pública de la instancia** | **`100.48.244.122`** (IP elástica) · http://100.48.244.122 redirige al sitio |
 | **Admin de Django** | https://fitlife-jorge.duckdns.org/admin/ |
 | **Documentación de la API** | https://fitlife-jorge.duckdns.org/api/docs/ (Swagger, con sesión de recepción o administración) |
 
-> La IP pública de AWS Academy cambia cuando se reinicia el laboratorio. El dominio de DuckDNS se actualiza solo
-> (cron en la instancia), así que el enlace del dominio es el que no cambia.
+> La instancia tiene una **IP elástica**: no cambia aunque se reinicie el laboratorio de AWS Academy. El dominio
+> de DuckDNS apunta a esa misma IP y tiene certificado HTTPS de Let's Encrypt.
 
 Aplicación web fullstack con **Django REST Framework + PostgreSQL**, desplegada en una instancia **EC2** con
 **Gunicorn + Nginx** y SSL de Let's Encrypt. Las páginas son plantillas de Django que **enmascaran la API**: la
@@ -82,7 +82,7 @@ python manage.py runserver
 
 Abrir <http://127.0.0.1:8000>. Para crear otro administrador: `python manage.py createsuperuser`.
 
-**Pruebas automatizadas** (84 pruebas: reglas de membresías, QR, reservas y lista de espera, carrera por el
+**Pruebas automatizadas** (92 pruebas: reglas de membresías, QR, reservas y lista de espera, carrera por el
 último cupo con 2 hilos, sesiones, CSRF, bloqueo del login, permisos por rol y todas las páginas del admin):
 
 ```bash
@@ -143,6 +143,7 @@ Sede 1─N RegistroAcceso N─1 Socio (null si el QR no sirve)
 | Rol | Endpoint | Qué hace |
 |---|---|---|
 | Público | `POST /api/auth/login/` · `POST /api/auth/logout/` | Sesión de Django (login exige token CSRF; 5 fallos = 10 min de bloqueo) |
+| Público | `POST /api/auth/registro/` | Crea una cuenta de **socio sin membresía** e inicia la sesión (página `/registro/`; máx. 5 cuentas por hora por IP) |
 | Público | `GET /api/planes/` · `GET /api/clases/` · `GET /api/aforo/publico/` | Planes, horario y aforo (sin nombres) |
 | Socio | `GET /api/mi-cuenta/` · `GET /api/mi-qr/` | Membresía, reservas, pagos, accesos y QR dinámico |
 | Socio / personal | `POST /api/reservas/` · `POST /api/reservas/{id}/cancelar/` | Reservar (cupo o lista de espera) y cancelar |
@@ -162,6 +163,9 @@ Sede 1─N RegistroAcceso N─1 Socio (null si el QR no sirve)
   muestra la 403). En el admin, cada rol tiene un **grupo de Django** con permisos por modelo: recepción ve
   todo pero no borra ni toca usuarios ni planes; un administrador que no es superusuario no se puede dar el
   superusuario.
+- **Registro público** (`/registro/`): siempre crea un **SOCIO sin membresía** (el rol no se puede elegir; el
+  personal lo crea el administrador en el admin). Sin plan pagado en recepción, el QR no da acceso ni se puede
+  reservar. Exige CSRF, valida RUT y contraseña, y acepta 5 cuentas por hora por IP (throttling de DRF).
 - **Fuerza bruta:** 5 intentos fallidos por IP = 10 minutos de bloqueo (en la base, para los 3 workers) y
   límite de Nginx de 10 peticiones por minuto en `/api/auth/`.
 - **Contraseñas:** hash PBKDF2 de Django + validador propio de fortaleza (nivel media o superior).

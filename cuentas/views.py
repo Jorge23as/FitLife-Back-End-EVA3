@@ -2,6 +2,7 @@
 Vistas de la API de cuentas: sesión (login, logout) y CRUD de socios.
 
 POST /api/auth/login/    inicia la sesión de Django (cookie HttpOnly) · 5 fallos por IP = 10 min de bloqueo
+POST /api/auth/registro/ crea una cuenta de socio e inicia su sesión · 5 cuentas por hora por IP
 POST /api/auth/logout/   cierra la sesión (se borra de la tabla django_session)
 GET  /api/auth/sesion/   quién soy, mi rol y cuándo vence mi sesión
 
@@ -15,7 +16,9 @@ from drf_spectacular.utils import extend_schema
 from rest_framework import generics, mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.exceptions import Throttled
 from rest_framework.response import Response
+from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
 
 from core.excepciones import ErrorDeNegocio
@@ -26,7 +29,8 @@ from . import bloqueo
 from .autenticacion import SesionAuthentication
 from .models import Instructor, Socio, Usuario
 from .permisos import EsStaff, rol_de
-from .serializers import InstructorSerializer, LoginSerializer, SesionSerializer, SocioSerializer
+from .serializers import (InstructorSerializer, LoginSerializer, RegistroSerializer, SesionSerializer,
+                          SocioSerializer)
 
 # a dónde va cada rol después del login
 INICIO_POR_ROL = {
@@ -91,6 +95,39 @@ class LoginView(APIView):
         }, status=status.HTTP_429_TOO_MANY_REQUESTS)
         respuesta['Retry-After'] = str(segundos)
         return respuesta
+
+
+class RegistroThrottle(AnonRateThrottle):
+    """Límite de cuentas nuevas por IP (DEFAULT_THROTTLE_RATES['registro']), contra las cuentas falsas en masa."""
+    scope = 'registro'
+
+    def get_ident(self, request):
+        return bloqueo.ip_del_cliente(request)  # la IP real que pone Nginx, no un X-Forwarded-For inventado
+
+
+class RegistroView(APIView):
+    """
+    Registro público: cualquiera puede crear su cuenta, pero siempre queda
+    como SOCIO y SIN membresía. Para entrar al gimnasio o reservar clases
+    tiene que contratar un plan en recepción. Exige CSRF como el login y
+    queda con la sesión iniciada.
+    """
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    throttle_classes = [RegistroThrottle]
+
+    @extend_schema(request=RegistroSerializer, responses={201: SesionSerializer})
+    def post(self, request):
+        SesionAuthentication().enforce_csrf(request)
+        datos = RegistroSerializer(data=request.data)
+        datos.is_valid(raise_exception=True)
+        usuario = datos.save().usuario
+        login(request, usuario)
+        datos = SesionSerializer(usuario, context={'request': request}).data
+        return Response({**datos, 'inicio': INICIO_POR_ROL[Usuario.Rol.SOCIO]}, status=status.HTTP_201_CREATED)
+
+    def throttled(self, request, wait):
+        raise Throttled(wait, detail='Se crearon demasiadas cuentas desde esta red.')
 
 
 class LogoutView(APIView):

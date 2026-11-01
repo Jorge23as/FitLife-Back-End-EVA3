@@ -85,6 +85,13 @@ def login(request):
     return render(request, 'web/login.html')
 
 
+@ensure_csrf_cookie
+def registro(request):
+    if request.user.is_authenticated:
+        return redirect(INICIO_POR_ROL[rol_de(request.user)])
+    return render(request, 'web/registro.html')
+
+
 # Para cuando Django lanza PermissionDenied (o falla el CSRF de un formulario).
 # En /api/ respondo JSON y en el resto la página 403.
 def handler403(request, exception=None):

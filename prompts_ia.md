@@ -186,7 +186,27 @@ Aclaración de la IA: la libpq del sistema se carga en el mismo proceso de Gunic
 evita por sí sola un buffer overflow. Lo que gana es que los parches de OpenSSL llegan por apt, en vez de quedar
 congelados en la versión embebida de la wheel.
 
-## 9. Pendiente de registrar
+## 9. Instancia propia en AWS y registro de socios
 
-- Despliegue en la instancia EC2 y pruebas en la IP pública.
+Con la entrega encima, el alumno preguntó si convenía usar la misma instancia de la Farmacia o una aparte. La IA
+recomendó una instancia **solo para FitLife**: compartida, al escribir la IP en el navegador aparecía la Farmacia
+(que era el sitio por defecto de Nginx), y la pauta pide la app "accesible por su IP pública". Se creó con Ubuntu,
+**IP elástica** asociada antes de instalar (para que la IP del README, DuckDNS y el certificado coincidan) y swap
+de 1 GB porque la instancia tiene menos de 1 GB de RAM. El servidor clona el repositorio privado con una
+*deploy key* de solo lectura.
+
+Errores del despliegue: en DuckDNS se escribió la IP privada (172.31.x.x) en la fila de la Farmacia y el dominio
+nuevo tomó la IP de la casa; en Termius el usuario quedó como "Ubuntu" con mayúscula. El instalador dejó activa la
+página "Welcome to nginx" en la IP, porque la confundió con otro sitio: se corrigió `deploy/instalar.sh` para
+quitarla.
+
+El alumno notó que en el login no había cómo crear una cuenta nueva y preguntó si la pauta lo pedía, pero que igual
+había que agregarlo. La IA revisó y ya existía crear socios (Gestión → Socios) y usuarios con rol (admin de Django); la pauta no pide
+registro público. Igual se agregó **"Crear cuenta"**: `POST /api/auth/registro/` y la página `/registro/`. Siempre
+crea un SOCIO sin membresía (el rol no se puede elegir, se probó mandando `rol=ADMIN` e `is_staff`), exige CSRF,
+valida RUT y contraseña, deja la sesión iniciada y limita a 5 cuentas por hora por IP. 5 pruebas nuevas.
+
+## 10. Pendiente de registrar
+
+- Pruebas finales en la IP pública.
 - Guía de estudio para la defensa y preguntas de práctica de la receta.

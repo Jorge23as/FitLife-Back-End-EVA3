@@ -214,6 +214,8 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'fitlife.paginacion.PaginacionEstandar',
     # las reglas del negocio rotas (clase cancelada, membresía vencida...) -> 400/409 con el motivo
     'EXCEPTION_HANDLER': 'core.excepciones.manejador_excepciones',
+    # registro público: 5 cuentas por hora por IP (se cuenta en la caché de cada worker)
+    'DEFAULT_THROTTLE_RATES': {'registro': '5/hour'},
 }
 
 # Código QR dinámico de acceso: cada QR que muestra la app del socio vale

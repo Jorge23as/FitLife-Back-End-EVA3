@@ -18,7 +18,7 @@ from clases.views import ActividadViewSet, ClaseViewSet, ReservaViewSet, SalaVie
 from core.api import MiCuentaView
 from core.views import api_docs, pagina_no_encontrada
 from cuentas.permisos import EsStaff
-from cuentas.views import InstructorViewSet, LoginView, LogoutView, SesionView, SocioViewSet
+from cuentas.views import InstructorViewSet, LoginView, LogoutView, RegistroView, SesionView, SocioViewSet
 from membresias.views import MembresiaViewSet, PagoViewSet, PlanViewSet
 
 # El router crea las rutas del CRUD de cada ViewSet:
@@ -40,6 +40,7 @@ router.register('visitas', VisitaViewSet, basename='visita')
 
 api_urlpatterns = [
     path('auth/login/', LoginView.as_view(), name='api-login'),
+    path('auth/registro/', RegistroView.as_view(), name='api-registro'),
     path('auth/logout/', LogoutView.as_view(), name='api-logout'),
     path('auth/sesion/', SesionView.as_view(), name='api-sesion'),
     path('mi-cuenta/', MiCuentaView.as_view(), name='api-mi-cuenta'),

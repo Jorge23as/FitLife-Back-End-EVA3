@@ -130,6 +130,16 @@ class SocioSerializer(serializers.ModelSerializer):
         return super().update(instance, validated_data)
 
 
+# Registro público (POST /api/auth/registro/): el mismo alta de socio, pero
+# solo con los datos de la cuenta. El rol no viene en los campos (siempre
+# SOCIO) y "activo" tampoco, así nadie se crea como personal ni desactivado.
+class RegistroSerializer(SocioSerializer):
+    activo = None
+
+    class Meta(SocioSerializer.Meta):
+        fields = ['username', 'password', 'first_name', 'last_name', 'email', 'rut', 'telefono']
+
+
 class InstructorSerializer(serializers.ModelSerializer):
     nombre = serializers.CharField(read_only=True)
     email = serializers.EmailField(source='usuario.email', read_only=True)

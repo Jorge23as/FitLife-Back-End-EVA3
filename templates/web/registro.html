@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+{% block titulo %}Crear cuenta{% endblock %}
+{% block contenido %}
+<div class="row justify-content-center">
+  <div class="col-lg-10 col-xl-9">
+    <div class="card tarjeta overflow-hidden"><div class="row g-0">
+    <!-- foto (se oculta en celulares para que el formulario quede arriba) -->
+    <div class="col-md-5 d-none d-md-block">
+      <div class="login-foto d-flex flex-column justify-content-end p-4">
+        <h2>Únete a<br>FitLife</h2>
+        <p class="mb-0 text-white-50">Crea tu cuenta y contrata tu plan en recepción para empezar a entrenar.</p>
+      </div>
+    </div>
+    <div class="col-md-7"><div class="card-body p-4 p-lg-5">
+      <div class="text-center mb-3">
+        <i class="bi bi-person-plus-fill text-fl display-5"></i>
+        <h1 class="h4 mt-2 mb-0">Crear cuenta de socio</h1>
+        <p class="text-muted small mb-0">¿Ya tienes cuenta? <a href="{% url 'login' %}">Ingresa aquí</a></p>
+      </div>
+      <form id="form-registro" class="row g-3">
+        <div class="col-sm-6"><label class="form-label" for="nombre">Nombre</label>
+          <input id="nombre" name="first_name" class="form-control" autocomplete="given-name" maxlength="150" required autofocus></div>
+        <div class="col-sm-6"><label class="form-label" for="apellido">Apellido</label>
+          <input id="apellido" name="last_name" class="form-control" autocomplete="family-name" maxlength="150" required></div>
+        <div class="col-sm-6"><label class="form-label" for="rut">RUT</label>
+          <input id="rut" name="rut" class="form-control" placeholder="12.345.678-5" maxlength="12" required></div>
+        <div class="col-sm-6"><label class="form-label" for="telefono">Teléfono <span class="text-muted small">(opcional)</span></label>
+          <input id="telefono" name="telefono" class="form-control" autocomplete="tel" placeholder="+56912345678" maxlength="15"></div>
+        <div class="col-12"><label class="form-label" for="email">Correo</label>
+          <input id="email" name="email" type="email" class="form-control" autocomplete="email" required></div>
+        <div class="col-sm-6"><label class="form-label" for="usuario">Usuario</label>
+          <input id="usuario" name="username" class="form-control" autocomplete="username" maxlength="150" required></div>
+        <div class="col-sm-6"><label class="form-label" for="clave">Contraseña</label>
+          <input id="clave" name="password" type="password" class="form-control" autocomplete="new-password" minlength="8" required></div>
+        <div class="col-12"><label class="form-label" for="clave2">Repetir contraseña</label>
+          <input id="clave2" type="password" class="form-control" autocomplete="new-password" required>
+          <div class="form-text">Mínimo 8 caracteres, no solo números y que no sea una contraseña común.</div></div>
+        <div class="col-12"><button id="btn-crear" class="btn btn-fl w-100">Crear cuenta</button></div>
+      </form>
+      <p class="small text-muted text-center mt-3 mb-0">
+        <i class="bi bi-info-circle"></i> La cuenta queda sin membresía: el plan se contrata y paga en recepción.
+      </p>
+    </div></div>
+    </div></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}">
+  // POST /api/auth/registro/ (con el token CSRF) -> crea el socio y deja la sesión iniciada
+  document.getElementById('form-registro').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const datos = Object.fromEntries(new FormData(e.target));
+    if (datos.password !== document.getElementById('clave2').value) {
+      return mensaje('Las contraseñas no coinciden.', 'danger');
+    }
+    const btn = document.getElementById('btn-crear');
+    btn.disabled = true;
+    const r = await apiPost('/api/auth/registro/', datos);
+    btn.disabled = false;
+    if (!r.ok) return mensaje(errorTexto(r.data), 'danger');
+    window.location.href = r.data.inicio;
+  });
+</script>
+{% endblock %}

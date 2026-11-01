@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Instalación de FitLife en la instancia EC2 (Ubuntu 24.04) donde ya corre
-# la Farmacia de la EVA-2. Hace las ETAPAS 3 a 8 de la receta y el SSL.
+# Instalación de FitLife en una instancia EC2 con Ubuntu (24.04 o más nueva),
+# sola o junto a la Farmacia de la EVA-2. Hace las ETAPAS 3 a 8 de la receta y el SSL.
 #
 # Antes: crear el subdominio en https://www.duckdns.org (ej. fitlife-jorge).
 # Uso (conectado por ssh como ubuntu):
@@ -113,6 +113,8 @@ echo "==> 8. Nginx"
 SITIO=/etc/nginx/sites-available/fitlife
 if [ ! -f "$SITIO" ]; then
     sed "s/DOMINIO/$DOMINIO/g" deploy/nginx_fitlife.conf | sudo tee "$SITIO" >/dev/null
+    # la página "Welcome to nginx" de una instancia nueva no cuenta como otro sitio
+    sudo rm -f /etc/nginx/sites-enabled/default
     # si otro sitio ya es el "default_server" del puerto 80, este no lo reclama
     if sudo grep -lq 'listen 80 default_server' /etc/nginx/sites-enabled/* 2>/dev/null; then
         sudo sed -i 's/listen 80 default_server;/listen 80;/' "$SITIO"
