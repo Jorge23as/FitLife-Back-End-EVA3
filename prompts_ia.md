@@ -98,6 +98,9 @@ Eso encontró 5 errores, que se corrigieron:
 7. **La cámara se veía al revés (lo encontró el alumno):** la cámara del notebook no se mostraba como espejo, como
    en una videollamada. Ahora la imagen se voltea con CSS (`transform: scaleX(-1)`) y hay un botón para voltearla
    a mano. La lectura del QR no cambia, porque se hace sobre el cuadro original de la cámara.
+8. **El administrador no encontraba dónde editar el horario (lo encontró el alumno):** la página Horario es de
+   consulta y la edición estaba solo en Gestión → Clases. Ahora el personal ve en cada clase del Horario los atajos
+   "Editar" (solo el administrador y en clases futuras) y "Lista", que abren esa clase en Gestión.
 
 ## 6. Rediseño visual "de centro deportivo"
 

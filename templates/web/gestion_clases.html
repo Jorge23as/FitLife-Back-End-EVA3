@@ -149,11 +149,28 @@
     },
   });
 
+  // atajos desde el Horario: ?editar=<id> abre el formulario de la clase y ?lista=<id> su lista
+  async function abrirDesdeHorario() {
+    const params = new URLSearchParams(location.search);
+    const id = params.get('editar') || params.get('lista');
+    if (!id) return;
+    const r = await api(`/api/clases/${id}/`);
+    if (!r.ok) return mensaje(errorTexto(r.data), 'danger');
+    // que la clase quede dentro del rango de fechas de la tabla
+    const dia = isoDia(new Date(r.data.inicio));
+    if (dia < form.elements.desde.value) form.elements.desde.value = dia;
+    if (dia > form.elements.hasta.value) form.elements.hasta.value = dia;
+    await cargar();
+    if (params.get('editar') && ES_ADMIN) acciones.editar({ dataset: { id } });
+    else verLista(Number(id));
+  }
+
   form.addEventListener('change', cargar);
   Promise.all([api('/api/actividades/?activa=true'), api('/api/instructores/'), api('/api/salas/'),
                api('/api/socios/?page_size=200&usuario__is_active=true&ordering=usuario__last_name')]).then(([a, i, s, so]) => {
     catalogos = { actividades: a.data, instructores: i.data, salas: s.data, socios: so.ok ? so.data.results : [] };
     document.getElementById('f-actividad').insertAdjacentHTML('beforeend', a.data.map((x) => `<option value="${x.id}">${esc(x.nombre)}</option>`).join(''));
+    abrirDesdeHorario();  // después de los catálogos: el formulario de edición los necesita
   });
   cargar();
 </script>

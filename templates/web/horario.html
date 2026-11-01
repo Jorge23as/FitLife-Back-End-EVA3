@@ -27,6 +27,8 @@
 <script nonce="{{ csp_nonce }}">
   const ES_SOCIO = '{{ rol|default:"" }}' === 'SOCIO';
   const CON_SESION = {{ user.is_authenticated|yesno:'true,false' }};
+  const ES_STAFF = {{ es_staff_fitlife|yesno:'true,false' }};
+  const ES_ADMIN = {{ es_admin_fitlife|yesno:'true,false' }};
   let lunes = lunesDe(new Date());
 
   function lunesDe(d) {
@@ -54,6 +56,15 @@
     return `<button class="btn btn-sm btn-outline-warning" data-accion="reservar" data-id="${c.id}">Unirme a la lista de espera</button>`;
   }
 
+  // personal: atajo a Gestión → Clases (el administrador edita las clases futuras; todos ven la lista)
+  function atajoGestion(c) {
+    if (!ES_STAFF || c.estado === 'CANCELADA') return '';
+    const editable = ES_ADMIN && new Date(c.inicio) > new Date();
+    return `<div class="d-flex gap-1 mt-1">
+      ${editable ? `<a class="btn btn-sm btn-outline-secondary" href="/gestion/clases/?editar=${c.id}"><i class="bi bi-pencil"></i> Editar</a>` : ''}
+      <a class="btn btn-sm btn-outline-secondary" href="/gestion/clases/?lista=${c.id}"><i class="bi bi-people"></i> Lista</a></div>`;
+  }
+
   async function cargar() {
     const desde = isoDia(lunes);
     const hasta = isoDia(sumarDias(lunes, 6));
@@ -79,7 +90,7 @@
               <div class="my-2">${barra(c.ocupados, c.cupo)}
                 <div class="small d-flex flex-wrap justify-content-between column-gap-2 mt-1"><span>${c.ocupados}/${c.cupo} cupos</span>
                   <span>${c.en_espera ? `${c.en_espera} en espera` : ''}</span></div></div>
-              <div>${botones(c)}</div>
+              <div>${botones(c)}${atajoGestion(c)}</div>
             </div>
           </div>`).join('') || '<div class="small text-muted">Sin clases</div>'}
       </div>`;
