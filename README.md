@@ -82,7 +82,7 @@ python manage.py runserver
 
 Abrir <http://127.0.0.1:8000>. Para crear otro administrador: `python manage.py createsuperuser`.
 
-**Pruebas automatizadas** (92 pruebas: reglas de membresías, QR, reservas y lista de espera, carrera por el
+**Pruebas automatizadas** (93 pruebas: reglas de membresías, QR, reservas y lista de espera, carrera por el
 último cupo con 2 hilos, sesiones, CSRF, bloqueo del login, permisos por rol y todas las páginas del admin):
 
 ```bash

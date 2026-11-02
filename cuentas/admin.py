@@ -6,7 +6,10 @@ from datetime import timedelta
 from django.contrib import admin, messages
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.forms import AdminUserCreationForm, UserChangeForm
+from django.core.exceptions import PermissionDenied
 from django.db.models import Count, Exists, OuterRef, Q
+from django.shortcuts import redirect
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import format_html
 
@@ -24,6 +27,21 @@ class RutFormMixin:
         rut = normalizar_rut(self.cleaned_data.get('rut'))
         validar_rut(rut)
         return rut
+
+
+# Socio e Instructor cuelgan de un Usuario: su perfil se crea solo al guardar
+# un Usuario con ese rol. Por eso "Añadir" lleva al formulario de Usuario con
+# el rol ya elegido (y solo lo ve quien puede crear usuarios).
+class AltaDesdeUsuarioMixin:
+    rol = None
+
+    def has_add_permission(self, request):
+        return request.user.has_perm('cuentas.add_usuario')
+
+    def add_view(self, request, form_url='', extra_context=None):
+        if not self.has_add_permission(request):
+            raise PermissionDenied
+        return redirect(f"{reverse('admin:cuentas_usuario_add')}?rol={self.rol}")
 
 
 class UsuarioCreacionForm(RutFormMixin, AdminUserCreationForm):
@@ -144,7 +162,8 @@ class PagoInline(admin.TabularInline):
 
 
 @admin.register(Socio)
-class SocioAdmin(admin.ModelAdmin):
+class SocioAdmin(AltaDesdeUsuarioMixin, admin.ModelAdmin):
+    rol = Usuario.Rol.SOCIO
     list_display = ['nombre', 'rut', 'email', 'membresia_hoy', 'vence', 'fecha_alta', 'activo']
     list_filter = [EstadoMembresiaFiltro, 'usuario__is_active', 'fecha_alta']
     search_fields = ['usuario__first_name', 'usuario__last_name', 'usuario__rut', 'usuario__email']
@@ -166,10 +185,6 @@ class SocioAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         return super().get_queryset(request).prefetch_related('membresias__plan')
-
-    def has_add_permission(self, request):
-        # el socio se crea al crear un Usuario con rol Socio (o desde Gestión de socios del sitio)
-        return False
 
     @admin.display(description='nombre', ordering='usuario__last_name')
     def nombre(self, obj):
@@ -221,7 +236,8 @@ class SocioAdmin(admin.ModelAdmin):
 
 
 @admin.register(Instructor)
-class InstructorAdmin(admin.ModelAdmin):
+class InstructorAdmin(AltaDesdeUsuarioMixin, admin.ModelAdmin):
+    rol = Usuario.Rol.INSTRUCTOR
     list_display = ['nombre', 'especialidad', 'email', 'clases_programadas']
     search_fields = ['usuario__first_name', 'usuario__last_name', 'especialidad']
     list_select_related = ['usuario']
@@ -230,9 +246,6 @@ class InstructorAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         return super().get_queryset(request).annotate(
             proximas=Count('clases', filter=Q(clases__inicio__gte=timezone.now(), clases__estado='PROGRAMADA')))
-
-    def has_add_permission(self, request):
-        return False  # se crea al crear un Usuario con rol Instructor
 
     @admin.display(description='nombre', ordering='usuario__first_name')
     def nombre(self, obj):

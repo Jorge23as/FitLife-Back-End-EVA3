@@ -39,10 +39,18 @@ class AdminTest(APITestCase):
                 lista = self.client.get(reverse(f'admin:{app}_{nombre}_changelist'))
                 self.assertEqual(lista.status_code, 200)
                 agregar = self.client.get(reverse(f'admin:{app}_{nombre}_add'))
-                self.assertIn(agregar.status_code, (200, 403))
+                self.assertIn(agregar.status_code, (200, 302, 403))
                 objeto = modelo.objects.first()
                 if objeto:
                     self.assertEqual(self.client.get(reverse(f'admin:{app}_{nombre}_change', args=[objeto.pk])).status_code, 200)
+
+    def test_anadir_socio_o_instructor_lleva_a_usuario_con_el_rol(self):
+        self.client.force_login(self.admin)
+        r = self.client.get('/admin/cuentas/socio/add/')
+        self.assertRedirects(r, '/admin/cuentas/usuario/add/?rol=SOCIO', fetch_redirect_response=False)
+        self.assertContains(self.client.get(r.url), '<option value="SOCIO" selected>', html=False)
+        r = self.client.get('/admin/cuentas/instructor/add/')
+        self.assertRedirects(r, '/admin/cuentas/usuario/add/?rol=INSTRUCTOR', fetch_redirect_response=False)
 
     def test_recepcion_entra_al_admin_con_permisos_limitados(self):
         self.client.force_login(crear_usuario(Usuario.Rol.RECEPCION))
@@ -50,6 +58,7 @@ class AdminTest(APITestCase):
         self.assertEqual(self.client.get('/admin/membresias/pago/add/').status_code, 200)
         self.assertEqual(self.client.get('/admin/membresias/plan/add/').status_code, 403)
         self.assertEqual(self.client.get('/admin/cuentas/usuario/add/').status_code, 403)
+        self.assertEqual(self.client.get('/admin/cuentas/socio/add/').status_code, 403)
         self.client.force_login(self.socio.usuario)
         self.assertRedirects(self.client.get('/admin/'), '/admin/login/?next=/admin/', fetch_redirect_response=False)
 

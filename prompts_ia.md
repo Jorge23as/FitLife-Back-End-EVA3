@@ -206,7 +206,25 @@ registro público. Igual se agregó **"Crear cuenta"**: `POST /api/auth/registro
 crea un SOCIO sin membresía (el rol no se puede elegir, se probó mandando `rol=ADMIN` e `is_staff`), exige CSRF,
 valida RUT y contraseña, deja la sesión iniciada y limita a 5 cuentas por hora por IP. 5 pruebas nuevas.
 
-## 10. Pendiente de registrar
+## 10. Revisión final contra la rúbrica (día de la entrega)
 
-- Pruebas finales en la IP pública.
+**Consultas (textuales):**
+> cual rut es valido?
+> segun la rubrica está lista? el qr, la camara, tiene que ir django- admin o no?
+> dame una lista de lo que cumple y con evidencia y rutas
+> pero al quitarlo no nos quitaran puntos?
+
+**Apoyo de la IA:** generó RUT de prueba con el mismo validador del proyecto (módulo 11) y revisó la app contra la
+pauta: sitio y `/admin/` respondiendo en la EC2, servidor con el último commit, migraciones al día y servicios
+activos. Aclaró que el Admin de Django es obligatorio (criterio 2 y la defensa "en el panel de Django Admin") y que
+el QR puede ser simulado; la cámara es un extra que solo funciona con https. Armó la lista de cumplimiento por
+criterio con archivos y URL como evidencia.
+
+Sobre Socios e Instructores sin botón "Añadir" en el admin: la rúbrica pide los modelos registrados y
+personalizados, no "Añadir" en todos, pero en la demo podía parecer que faltaba. Se cambió para que **"Añadir" en
+Socios e Instructores lleve al formulario de Usuario con el rol ya elegido** (el perfil se sigue creando desde el
+Usuario). Solo lo ve quien puede crear usuarios: a recepción le da 403. 1 prueba nueva (93 en total).
+
+## 11. Pendiente de registrar
+
 - Guía de estudio para la defensa y preguntas de práctica de la receta.
