@@ -82,7 +82,7 @@ python manage.py runserver
 
 Abrir <http://127.0.0.1:8000>. Para crear otro administrador: `python manage.py createsuperuser`.
 
-**Pruebas automatizadas** (93 pruebas: reglas de membresías, QR, reservas y lista de espera, carrera por el
+**Pruebas automatizadas** (95 pruebas: reglas de membresías, QR, reservas y lista de espera, carrera por el
 último cupo con 2 hilos, sesiones, CSRF, bloqueo del login, permisos por rol y todas las páginas del admin):
 
 ```bash
@@ -168,7 +168,9 @@ Sede 1─N RegistroAcceso N─1 Socio (null si el QR no sirve)
   reservar. Exige CSRF, valida RUT y contraseña, y acepta 5 cuentas por hora por IP (throttling de DRF).
 - **Fuerza bruta:** 5 intentos fallidos por IP = 10 minutos de bloqueo (en la base, para los 3 workers) y
   límite de Nginx de 10 peticiones por minuto en `/api/auth/`.
-- **Contraseñas:** hash PBKDF2 de Django + validador propio de fortaleza (nivel media o superior).
+- **Contraseñas:** hash PBKDF2 de Django + validador propio de fortaleza. Mientras se escribe, un medidor muestra el
+  nivel: rojo = insuficiente (se rechaza), amarillo = aceptable, verde = seguro, azul = SEGURO (sitio y admin).
+- **Teléfonos:** solo números con un + opcional (+56912345678); los espacios y guiones se quitan al guardar.
 - **QR firmado** con la `SECRET_KEY` y con vencimiento; se puede regenerar si el socio pierde el celular.
 - **Content-Security-Policy** con nonce (sin `unsafe-inline` en scripts; botones con `data-accion`), SRI en
   los CDN, HSTS, `X-Frame-Options` y RUT con dígito verificador.

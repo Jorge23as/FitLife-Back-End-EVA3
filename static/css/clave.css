@@ -1,0 +1,17 @@
+/* Medidor de seguridad de la contraseña (static/js/clave.js), en el sitio y en el admin */
+.fuerza-clave { margin-top: .4rem; font-size: .8rem; max-width: 420px; }
+.fuerza-barra { display: flex; gap: 4px; }
+.fuerza-barra span { flex: 1; height: 6px; border-radius: 3px; background: #cbd5e1; }
+.fuerza-texto { margin-top: .2rem; font-weight: 600; }
+
+.fuerza-clave[data-nivel="0"] { --fuerza: #dc2626; }  /* rojo: insuficiente */
+.fuerza-clave[data-nivel="1"] { --fuerza: #eab308; }  /* amarillo: aceptable */
+.fuerza-clave[data-nivel="2"] { --fuerza: #16a34a; }  /* verde: seguro */
+.fuerza-clave[data-nivel="3"] { --fuerza: #2563eb; }  /* azul: SEGURO */
+.fuerza-clave[data-nivel="0"] .fuerza-barra span:nth-child(-n+1),
+.fuerza-clave[data-nivel="1"] .fuerza-barra span:nth-child(-n+2),
+.fuerza-clave[data-nivel="2"] .fuerza-barra span:nth-child(-n+3),
+.fuerza-clave[data-nivel="3"] .fuerza-barra span { background: var(--fuerza); }
+.fuerza-clave .fuerza-texto { color: var(--fuerza); }
+.fuerza-clave[data-nivel="1"] .fuerza-texto { color: #a16207; }  /* amarillo más oscuro: se lee sobre blanco */
+.fuerza-clave[data-nivel="3"] .fuerza-texto { letter-spacing: .5px; }

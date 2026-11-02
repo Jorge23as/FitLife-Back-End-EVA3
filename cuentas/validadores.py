@@ -8,16 +8,19 @@ Fortaleza (igual que en la EVA-2). Cada contraseña suma puntos (0 a 5):
   +1 tiene números
   +1 tiene símbolos (!, #, $, ., -, etc.)
 
-  0-2 puntos (o menos de 8 caracteres) -> Baja     (no se acepta)
-  3 puntos                             -> Media    (aceptada)
-  4 puntos                             -> Alta     (aceptada)
-  5 puntos                             -> Muy alta (aceptada)
+  0-2 puntos (o menos de 8 caracteres) -> Insuficiente (rojo, no se acepta)
+  3 puntos                             -> Aceptable    (amarillo)
+  4 puntos                             -> Seguro       (verde)
+  5 puntos                             -> SEGURO       (azul)
+
+El medidor de colores de los formularios (static/js/clave.js) calcula los
+mismos puntos mientras se escribe; el que decide es este validador.
 """
 import re
 
 from django.core.exceptions import ValidationError
 
-NIVELES = {0: 'Baja', 1: 'Baja', 2: 'Baja', 3: 'Media', 4: 'Alta', 5: 'Muy alta'}
+NIVELES = {0: 'Insuficiente', 1: 'Insuficiente', 2: 'Insuficiente', 3: 'Aceptable', 4: 'Seguro', 5: 'SEGURO'}
 
 
 def fortaleza(password):
@@ -36,15 +39,15 @@ def fortaleza(password):
 class FortalezaPasswordValidator:
     def validate(self, password, user=None):
         puntos, nivel = fortaleza(password)
-        if nivel == 'Baja':
+        if puntos <= 2:
             raise ValidationError(
-                'La contraseña es de seguridad baja. Use al menos 8 caracteres y combine mayúsculas, '
-                'minúsculas, números y símbolos (nivel media o superior).',
+                'La contraseña es insuficiente. Use al menos 8 caracteres y combine mayúsculas, '
+                'minúsculas, números y símbolos (nivel aceptable o superior).',
                 code='password_debil',
             )
 
     def get_help_text(self):
-        return ('La contraseña debe tener seguridad media o superior: al menos 8 caracteres y combinar '
+        return ('La contraseña debe tener nivel aceptable o superior: al menos 8 caracteres y combinar '
                 'mayúsculas, minúsculas, números y símbolos.')
 
 
@@ -79,3 +82,19 @@ def validar_rut(rut):
     numero, dv = rut.split('-')
     if digito_verificador(numero) != dv:
         raise ValidationError('El RUT no es válido (el dígito verificador no corresponde).')
+
+
+# Teléfono: solo números, con un + opcional al inicio (+56912345678). Antes
+# de validar se quitan espacios, guiones y paréntesis, así "+56 9 1234-5678"
+# sirve y se guarda como +56912345678.
+TELEFONO_VALIDO = re.compile(r'^\+?\d{8,12}$')
+
+
+def normalizar_telefono(valor):
+    return re.sub(r'[\s\-()]', '', str(valor or ''))
+
+
+def validar_telefono(telefono):
+    if telefono and not TELEFONO_VALIDO.match(telefono):
+        raise ValidationError('El teléfono solo puede tener números (y un + al inicio), entre 8 y 12 dígitos. '
+                              'Ej: +56912345678.')

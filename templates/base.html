@@ -12,6 +12,7 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet"
         integrity="sha384-XGjxtQfXaH2tnPFa9x+ruJTuLE3Aa6LhHSWRr1XeTyhezb4abCG4ccI5AkVDxqC+" crossorigin="anonymous">
   <link href="{% static 'css/fitlife.css' %}?v=4" rel="stylesheet">
+  <link href="{% static 'css/clave.css' %}?v=1" rel="stylesheet">
 </head>
 <body>
   {% csrf_token %}
@@ -135,7 +136,8 @@
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
           integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
-  <script src="{% static 'js/api.js' %}?v=1"></script>
+  <script src="{% static 'js/api.js' %}?v=2"></script>
+  <script src="{% static 'js/clave.js' %}?v=1"></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

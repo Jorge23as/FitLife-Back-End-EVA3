@@ -2,7 +2,9 @@
 {% load static %}
 {# Personalización del admin de Django: extiende la plantilla original (mismo nombre) y cambia la marca, los colores y los enlaces #}
 
-{% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static 'css/admin_fitlife.css' %}?v=1" {% csp_nonce_attr %}>{% endblock %}
+{% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static 'css/admin_fitlife.css' %}?v=1" {% csp_nonce_attr %}>
+<link rel="stylesheet" href="{% static 'css/clave.css' %}?v=1" {% csp_nonce_attr %}>{% endblock %}
+{% block extrahead %}{{ block.super }}<script src="{% static 'js/clave.js' %}?v=1" defer {% csp_nonce_attr %}></script>{% endblock %}
 
 {% block branding %}
 <div id="site-name"><a href="{% url 'admin:index' %}"><span class="fl-logo">⚡</span> FitLife <span class="fl-sub">Administración</span></a></div>

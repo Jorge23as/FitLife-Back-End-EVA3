@@ -19,7 +19,7 @@ from membresias.models import Membresia, Pago
 from membresias.services import congelada_el, situacion
 
 from .models import BloqueoLogin, Instructor, Socio, Usuario
-from .validadores import normalizar_rut, validar_rut
+from .validadores import normalizar_rut, normalizar_telefono, validar_rut
 
 
 class RutFormMixin:
@@ -27,6 +27,10 @@ class RutFormMixin:
         rut = normalizar_rut(self.cleaned_data.get('rut'))
         validar_rut(rut)
         return rut
+
+    def clean_telefono(self):
+        # el validador del modelo revisa que queden solo números
+        return normalizar_telefono(self.cleaned_data.get('telefono'))
 
 
 # Socio e Instructor cuelgan de un Usuario: su perfil se crea solo al guardar

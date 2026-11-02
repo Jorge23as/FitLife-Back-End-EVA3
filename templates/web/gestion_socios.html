@@ -38,10 +38,10 @@
     { nombre: 'last_name', etiqueta: 'Apellidos', requerido: true, ancho: 'col-md-6' },
     { nombre: 'rut', etiqueta: 'RUT', requerido: true, ancho: 'col-md-4', ayuda: 'Ej: 12345678-5' },
     { nombre: 'email', etiqueta: 'Email', tipo: 'email', requerido: true, ancho: 'col-md-4' },
-    { nombre: 'telefono', etiqueta: 'Teléfono', ancho: 'col-md-4' },
+    { nombre: 'telefono', etiqueta: 'Teléfono', tipo: 'tel', ancho: 'col-md-4', ayuda: 'Ej: +56912345678' },
     { nombre: 'fecha_nacimiento', etiqueta: 'Fecha de nacimiento', tipo: 'date', ancho: 'col-md-4' },
     { nombre: 'contacto_emergencia', etiqueta: 'Contacto de emergencia', ancho: 'col-md-4' },
-    { nombre: 'telefono_emergencia', etiqueta: 'Teléfono de emergencia', ancho: 'col-md-4' },
+    { nombre: 'telefono_emergencia', etiqueta: 'Teléfono de emergencia', tipo: 'tel', ancho: 'col-md-4' },
   ];
 
   async function cargar() {

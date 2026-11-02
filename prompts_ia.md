@@ -225,6 +225,18 @@ personalizados, no "Añadir" en todos, pero en la demo podía parecer que faltab
 Socios e Instructores lleve al formulario de Usuario con el rol ya elegido** (el perfil se sigue creando desde el
 Usuario). Solo lo ve quien puede crear usuarios: a recepción le da 403. 1 prueba nueva (93 en total).
 
+**Consulta (textual):**
+> ha si tambien al poner el numero celular se podia poner letras eso está mal, y pon un metodo de contraseña fuerte.
+> o sea rojo = insuficiente, amarillo = aceptable, verde = seguro, azul = SEGURO
+
+**Apoyo de la IA:** el teléfono era un texto libre. Se agregó un validador (`validar_telefono`: solo números y un +
+al inicio, 8 a 12 dígitos) en el modelo, la API y el admin; los espacios y guiones se quitan al guardar, y en las
+páginas el campo borra las letras al escribirlas. Para la contraseña ya existía el validador de fortaleza del
+servidor (0 a 5 puntos); se renombraron sus niveles a los del alumno y se hizo `static/js/clave.js`, un medidor de
+4 tramos que suma los mismos puntos mientras se escribe y dice qué falta. Va en el registro, en Gestión de socios y
+en el admin (crear usuario y cambiar contraseña). Se revisó en el navegador con las 4 claves de ejemplo y
+2 pruebas nuevas (95 en total).
+
 ## 11. Pendiente de registrar
 
 - Guía de estudio para la defensa y preguntas de práctica de la receta.

@@ -33,6 +33,7 @@ class AdminTest(APITestCase):
     def test_todas_las_paginas_del_admin_cargan(self):
         self.client.force_login(self.admin)
         self.assertContains(self.client.get('/admin/'), 'Membresías activas')
+        self.assertContains(self.client.get('/admin/cuentas/usuario/add/'), 'js/clave.js')
         for modelo, modelo_admin in admin.site._registry.items():
             app, nombre = modelo._meta.app_label, modelo._meta.model_name
             with self.subTest(modelo=nombre):

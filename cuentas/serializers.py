@@ -13,7 +13,7 @@ from rest_framework.validators import UniqueValidator
 from membresias.services import situacion
 
 from .models import Instructor, Socio, Usuario
-from .validadores import normalizar_rut, validar_rut
+from .validadores import normalizar_rut, normalizar_telefono, validar_rut, validar_telefono
 
 
 # El username y el RUT son únicos en Usuario, pero el serializer es de
@@ -43,6 +43,22 @@ class RutField(serializers.CharField):
         except DjangoValidationError as e:
             raise serializers.ValidationError(e.messages)
         return rut
+
+
+# Campo teléfono: quita espacios y guiones y rechaza letras (+56912345678).
+class TelefonoField(serializers.CharField):
+
+    def __init__(self, **kwargs):
+        kwargs.update(max_length=15, required=False, allow_blank=True)
+        super().__init__(**kwargs)
+
+    def to_internal_value(self, data):
+        telefono = normalizar_telefono(super().to_internal_value(data))
+        try:
+            validar_telefono(telefono)
+        except DjangoValidationError as e:
+            raise serializers.ValidationError(e.messages)
+        return telefono
 
 
 class LoginSerializer(serializers.Serializer):
@@ -79,7 +95,8 @@ class SocioSerializer(serializers.ModelSerializer):
     last_name = serializers.CharField(source='usuario.last_name', max_length=150)
     email = serializers.EmailField(source='usuario.email')
     rut = RutField(source='usuario.rut')
-    telefono = serializers.CharField(source='usuario.telefono', max_length=15, required=False, allow_blank=True)
+    telefono = TelefonoField(source='usuario.telefono')
+    telefono_emergencia = TelefonoField()
     activo = serializers.BooleanField(source='usuario.is_active', required=False)
     nombre = serializers.CharField(read_only=True)
     membresia = serializers.SerializerMethodField()

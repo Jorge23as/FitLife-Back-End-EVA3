@@ -14,7 +14,7 @@ import uuid
 from django.contrib.auth.models import AbstractUser, UserManager
 from django.db import models
 
-from .validadores import normalizar_rut
+from .validadores import normalizar_rut, validar_telefono
 
 
 class UsuarioManager(UserManager):
@@ -42,7 +42,7 @@ class Usuario(AbstractUser):
 
     rol = models.CharField(max_length=12, choices=Rol.choices, default=Rol.SOCIO)
     rut = models.CharField('RUT', max_length=12, unique=True, help_text='Formato 12345678-9')
-    telefono = models.CharField('teléfono', max_length=15, blank=True)
+    telefono = models.CharField('teléfono', max_length=15, blank=True, validators=[validar_telefono])
 
     objects = UsuarioManager()
     REQUIRED_FIELDS = ['email', 'first_name', 'last_name', 'rut']
@@ -86,7 +86,8 @@ class Socio(models.Model):
     usuario = models.OneToOneField(Usuario, on_delete=models.CASCADE, related_name='socio')
     fecha_nacimiento = models.DateField('fecha de nacimiento', null=True, blank=True)
     contacto_emergencia = models.CharField('contacto de emergencia', max_length=100, blank=True)
-    telefono_emergencia = models.CharField('teléfono de emergencia', max_length=15, blank=True)
+    telefono_emergencia = models.CharField('teléfono de emergencia', max_length=15, blank=True,
+                                           validators=[validar_telefono])
     codigo_qr = models.UUIDField('código QR', default=uuid.uuid4, unique=True, editable=False)
     fecha_alta = models.DateField('fecha de alta', auto_now_add=True)
 

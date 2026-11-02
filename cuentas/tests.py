@@ -11,7 +11,7 @@ from rest_framework.test import APIClient, APITestCase
 from core.fabricas import CLAVE, crear_plan, crear_socio, crear_usuario
 
 from .models import BloqueoLogin, Usuario
-from .validadores import normalizar_rut, validar_rut
+from .validadores import fortaleza, normalizar_rut, validar_rut
 
 Rol = Usuario.Rol
 
@@ -108,6 +108,27 @@ class UsuariosTest(APITestCase):
         with self.assertRaises(ValidationError):
             validar_rut('12345678-9')
 
+    def test_niveles_de_la_contrasena(self):
+        # rojo / amarillo / verde / azul del medidor (static/js/clave.js)
+        self.assertEqual(fortaleza('abc12345')[1], 'Insuficiente')
+        self.assertEqual(fortaleza('Abc12345')[1], 'Aceptable')
+        self.assertEqual(fortaleza('Abc12345!')[1], 'Seguro')
+        self.assertEqual(fortaleza('Gimnasio.2026!')[1], 'SEGURO')
+
+    def test_telefono_solo_numeros(self):
+        self.client.force_login(crear_usuario(Rol.RECEPCION))
+        socio = crear_socio()
+        url = f'/api/socios/{socio.id}/'
+        r = self.client.patch(url, {'telefono': '+569abc12345'})
+        self.assertEqual(r.status_code, 400)
+        self.assertIn('telefono', r.data)
+        r = self.client.patch(url, {'telefono_emergencia': 'llamar a Juan'})
+        self.assertIn('telefono_emergencia', r.data)
+        # espacios y guiones se aceptan y se guardan solo los números
+        r = self.client.patch(url, {'telefono': '+56 9 1234-5678', 'telefono_emergencia': '22345 6789'})
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual((r.data['telefono'], r.data['telefono_emergencia']), ('+56912345678', '223456789'))
+
     def test_recepcion_crea_un_socio_con_su_cuenta(self):
         self.client.force_login(crear_usuario(Rol.RECEPCION))
         datos = {'username': 'nuevo.socio', 'password': 'Gimnasio.2026', 'first_name': 'Ana', 'last_name': 'Pérez',
@@ -168,6 +189,9 @@ class RegistroTest(APITestCase):
         r = self.client.post('/api/auth/registro/', {**self.DATOS, 'username': 'otra', 'rut': '22222222-2',
                                                      'password': '12345678'})
         self.assertIn('password', r.data)
+        r = self.client.post('/api/auth/registro/', {**self.DATOS, 'username': 'otra', 'rut': '22222222-2',
+                                                     'telefono': 'no tengo'})
+        self.assertIn('telefono', r.data)
         cliente = APIClient(enforce_csrf_checks=True)
         r = cliente.post('/api/auth/registro/', {**self.DATOS, 'username': 'otra', 'rut': '22222222-2'})
         self.assertEqual(r.status_code, 403)

@@ -176,11 +176,12 @@ function formulario({ titulo, campos, valores = {}, textoOk = 'Guardar', enviar 
           ${c.ayuda ? `<div class="form-text">${esc(c.ayuda)}</div>` : ''}</div></div>`;
       } else {
         control = `<input id="${id}" name="${c.nombre}" type="${c.tipo || 'text'}" class="form-control" value="${esc(valor)}" ${req} ${extra}
-          ${c.tipo === 'password' ? 'autocomplete="new-password"' : ''}>`;
+          ${c.tipo === 'password' ? 'autocomplete="new-password"' : ''} ${c.tipo === 'tel' ? 'inputmode="tel" maxlength="15"' : ''}>`;
       }
       return `<div class="${c.ancho || 'col-12'}"><label for="${id}" class="form-label">${esc(c.etiqueta)}${c.requerido ? ' *' : ''}</label>
         ${control}${c.ayuda ? `<div class="form-text">${esc(c.ayuda)}</div>` : ''}</div>`;
     }).join('');
+    form.querySelectorAll('input[type="password"]').forEach(medidorClave);
 
     const modal = bootstrap.Modal.getOrCreateInstance(el);
     let resultado = null;
@@ -210,6 +211,12 @@ function formulario({ titulo, campos, valores = {}, textoOk = 'Guardar', enviar 
     modal.show();
   });
 }
+
+// Teléfonos: al escribir o pegar se borra todo lo que no sea número, +,
+// espacio o guion (el servidor igual lo valida).
+document.addEventListener('input', (e) => {
+  if (e.target.type === 'tel') e.target.value = e.target.value.replace(/[^\d+\s-]/g, '');
+});
 
 // Acciones de los botones: <button data-accion="cancelar" data-id="5"> llama a
 // acciones.cancelar(boton), y la función lee boton.dataset.id.
